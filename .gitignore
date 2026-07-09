@@ -1,0 +1,9 @@
+# Runtime data / logs (contain real internal Google Sheet links and business data)
+data/
+*.log
+
+# Backup files
+*.bak-*
+
+# Local tool settings
+.claude/
