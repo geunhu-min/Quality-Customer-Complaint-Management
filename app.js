@@ -13630,3 +13630,88 @@ function buildClaimSummaryMeta(latestDate) {
   setTimeout(function () { compactUploadsNow(); applyDailyStable(true); restoreClaimAccumBody(); }, 1500);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) setTimeout(function () { compactUploadsNow(); applyDailyStable(true); }, 100); });
 })();
+
+// shared-server-sync-admin-gated-v1-20260709
+(function () {
+  "use strict";
+  if (window.__sharedServerSyncV1) return;
+  window.__sharedServerSyncV1 = true;
+
+  var ADMIN_TOKEN_KEY = "qualityClaimDashboard.adminToken.v1";
+  function getAdminToken() {
+    try { return localStorage.getItem(ADMIN_TOKEN_KEY) || ""; } catch (_) { return ""; }
+  }
+  try {
+    var params = new URLSearchParams(location.search);
+    var incoming = params.get("admin");
+    if (incoming) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, incoming);
+      params.delete("admin");
+      var newQuery = params.toString();
+      history.replaceState(null, "", location.pathname + (newQuery ? "?" + newQuery : "") + location.hash);
+    }
+  } catch (_) {}
+  window.__qcdGetAdminToken = getAdminToken;
+
+  function applyViewOnlyUi(canEdit) {
+    var insertBtn = document.getElementById("openDataInsert");
+    var deleteBtn = document.getElementById("toggleFileCards");
+    if (insertBtn) insertBtn.hidden = !canEdit;
+    if (deleteBtn) deleteBtn.hidden = !canEdit;
+  }
+  function checkCanEdit() {
+    var token = getAdminToken();
+    fetch("/api/config", { headers: token ? { "X-Admin-Token": token } : {} })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
+      .catch(function () {});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);
+  else checkCanEdit();
+
+  var serverSyncTimer = null;
+  function scheduleServerSync() {
+    clearTimeout(serverSyncTimer);
+    serverSyncTimer = setTimeout(function () {
+      var token = getAdminToken();
+      if (!token) return;
+      var raw = null;
+      try { raw = localStorage.getItem(dashboardStorageKey); } catch (_) {}
+      if (!raw) return;
+      fetch("/api/claim-dashboard-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Token": token },
+        body: raw
+      }).catch(function () {});
+    }, 600);
+  }
+
+  var prevSharedSave = typeof saveDashboardState === "function" ? saveDashboardState : null;
+  if (prevSharedSave) {
+    window.saveDashboardState = saveDashboardState = function () {
+      var ret = prevSharedSave.apply(this, arguments);
+      scheduleServerSync();
+      return ret;
+    };
+  }
+
+  var prevSharedRestore = typeof restoreSavedDashboardState === "function" ? restoreSavedDashboardState : null;
+  if (prevSharedRestore) {
+    window.restoreSavedDashboardState = restoreSavedDashboardState = async function () {
+      var hasLocal = false;
+      try { hasLocal = !!localStorage.getItem(dashboardStorageKey); } catch (_) {}
+      if (!hasLocal) {
+        try {
+          var res = await fetch("/api/claim-dashboard-state", { cache: "no-store" });
+          if (res.ok) {
+            var data = await res.json();
+            if (data && Array.isArray(data.groups) && data.groups.length) {
+              localStorage.setItem(dashboardStorageKey, JSON.stringify(data));
+            }
+          }
+        } catch (_) {}
+      }
+      return prevSharedRestore.apply(this, arguments);
+    };
+  }
+})();

@@ -327,9 +327,15 @@ async function loadData(){
     console.warn("Defect close dashboard data fallback used:",err);
   }
 }
+function adminTokenHeader(){
+  try{
+    const token=localStorage.getItem("qualityClaimDashboard.adminToken.v1")||"";
+    return token?{"X-Admin-Token":token}:{};
+  }catch(err){return {};}
+}
 async function loadConfig(){
   try{
-    const res=await fetch("/api/config");
+    const res=await fetch("/api/config",{headers:adminTokenHeader()});
     if(!res.ok)throw new Error("권한 정보를 불러오지 못했습니다.");
     const config=await res.json();
     canEdit=!!config.canEdit;
@@ -343,7 +349,7 @@ async function saveData(){
   try{
     const res=await fetch("/api/save",{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:Object.assign({"Content-Type":"application/json"},adminTokenHeader()),
       body:JSON.stringify(dashboard)
     });
     if(!res.ok)throw new Error("save failed");

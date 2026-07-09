@@ -69,6 +69,12 @@ function isLocalRequest(req) {
   return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
 }
 
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
+function isAdminRequest(req) {
+  if (!ADMIN_TOKEN) return isLocalRequest(req);
+  return req.headers["x-admin-token"] === ADMIN_TOKEN;
+}
+
 function normalizeDefectCloseData(data) {
   const dashboard = data && data.years ? data : structuredClone(defaultDefectCloseData);
   if (!dashboard.years["2025"]) dashboard.years["2025"] = {};
@@ -273,7 +279,7 @@ async function handleDefectCloseApi(req, res) {
         return true;
       }
       if (req.method === "POST") {
-        if (!isLocalRequest(req)) {
+        if (!isAdminRequest(req)) {
           sendJson(res, 403, { error: "Local only" });
           return true;
         }
@@ -282,7 +288,7 @@ async function handleDefectCloseApi(req, res) {
         return true;
       }
       if (req.method === "DELETE") {
-        if (!isLocalRequest(req)) {
+        if (!isAdminRequest(req)) {
           sendJson(res, 403, { error: "Local only" });
           return true;
         }
@@ -298,12 +304,12 @@ async function handleDefectCloseApi(req, res) {
     }
 
     if (req.method === "GET" && parsed.pathname === "/api/config") {
-      sendJson(res, 200, { canEdit: isLocalRequest(req) });
+      sendJson(res, 200, { canEdit: isAdminRequest(req) });
       return true;
     }
 
     if (req.method === "POST" && parsed.pathname === "/api/save") {
-      if (!isLocalRequest(req)) {
+      if (!isAdminRequest(req)) {
         sendJson(res, 403, { error: "View only" });
         return true;
       }
