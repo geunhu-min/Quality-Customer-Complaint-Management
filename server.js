@@ -4,7 +4,11 @@ const path = require("path");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 5174);
-const defectCloseRoot = path.resolve(root, "..", "dashboard_selected_months");
+const siblingDefectCloseRoot = path.resolve(root, "..", "dashboard_selected_months");
+const bundledDefectCloseRoot = path.resolve(root, "dashboard_selected_months");
+const defectCloseRoot = fs.existsSync(path.join(siblingDefectCloseRoot, "dashboard_selected_months.html"))
+  ? siblingDefectCloseRoot
+  : bundledDefectCloseRoot;
 const defectCloseDataDir = path.join(defectCloseRoot, "data");
 const defectCloseDataFile = path.join(defectCloseDataDir, "dashboard-data.json");
 const defaultDefectCloseData = { years: { "2025": {}, "2026": {} } };
@@ -394,6 +398,6 @@ server.on("error", (err) => {
   console.error(err.message);
 });
 
-server.listen(port, "127.0.0.1", () => {
+server.listen(port, () => {
   console.log(`Quality claim dashboard: http://localhost:${port}`);
 });
