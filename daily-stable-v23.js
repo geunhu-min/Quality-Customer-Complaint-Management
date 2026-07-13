@@ -862,7 +862,7 @@
       var isPublished = /docs\.google\.com\/spreadsheets\/d\/e\//.test(sourceUrl);
       var wb;
       if (isPublished) {
-        var csvRes = await fetch("/api/google-published-csv?url=" + encodeURIComponent(sourceUrl), { cache: "no-store" });
+        var csvRes = await fetch(sourceUrl, { cache: "no-store" });
         if (!csvRes.ok) throw new Error("csv " + csvRes.status);
         var csvText = await csvRes.text();
         wb = XLSX.read(csvText, { type: "string", cellDates: true });

@@ -473,8 +473,7 @@ async function fetchPublishedCsvDataSet(urlText, kind, label, year) {
 
 async function fetchPublishedCsvSingleDataSet(url, kind, label, year) {
   if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
-  const proxyUrl = `/api/google-published-csv?url=${encodeURIComponent(url)}`;
-  const res = await fetch(proxyUrl, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `게시 주소 응답 오류 ${res.status}`);
@@ -508,8 +507,7 @@ async function fetchPublishedCsvMonthlyDataSets(lines, label, year) {
     const monthNum = parsed.month || (i + 1);
     const monthLabel = monthLabels[monthNum - 1] || `${monthNum}월`;
     const url = parsed.url;
-    const proxyUrl = `/api/google-published-csv?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl, { cache: "no-store" });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(`${monthLabel} 시트: ${err.error || `응답 오류 ${res.status}`}`);

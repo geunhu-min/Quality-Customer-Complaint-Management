@@ -984,7 +984,7 @@ function handleUpload(){
 async function fetchWorkbookFromUrl(url){
   const isPublished=/docs\.google\.com\/spreadsheets\/d\/e\//.test(url);
   if(isPublished){
-    const res=await fetch("/api/google-published-csv?url="+encodeURIComponent(url));
+    const res=await fetch(url);
     if(!res.ok){
       const err=await res.json().catch(()=>({error:"스프레드시트를 불러오지 못했습니다."}));
       throw new Error(err.error||"스프레드시트를 불러오지 못했습니다.");
