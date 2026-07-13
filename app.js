@@ -1417,10 +1417,22 @@ async function parseExcelDataSets(file) {
   }));
 }
 
+function fullWidthHeaders(aoa, headerIndex) {
+  const width = aoa.reduce((max, row) => Math.max(max, (row || []).length), 0);
+  const headerRow = aoa[headerIndex] || [];
+  const raw = Array.from({ length: width }, (_, index) => String(headerRow[index] || `컬럼${index + 1}`).trim() || `컬럼${index + 1}`);
+  const counts = new Map();
+  return raw.map((header) => {
+    const count = (counts.get(header) || 0) + 1;
+    counts.set(header, count);
+    return count > 1 ? `${header}(${count})` : header;
+  });
+}
+
 function excelRowsFromSheet(sheet) {
   const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
   const headerIndex = findExcelHeaderIndex(aoa);
-  const headers = (aoa[headerIndex] || []).map((cell, index) => String(cell || `컬럼${index + 1}`).trim() || `컬럼${index + 1}`);
+  const headers = fullWidthHeaders(aoa, headerIndex);
   return aoa
     .map((cells, rowIndex) => {
       const row = Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
@@ -1435,7 +1447,7 @@ function excelRowsFromSheet(sheet) {
 function deadlineRowsFromSheet(sheet) {
   const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
   const headerIndex = findDeadlineHeaderIndex(aoa);
-  const headers = (aoa[headerIndex] || []).map((cell, index) => String(cell || `컬럼${index + 1}`).trim() || `컬럼${index + 1}`);
+  const headers = fullWidthHeaders(aoa, headerIndex);
   const indexes = deadlineColumnIndexes(headers);
   return aoa
     .slice(headerIndex + 1)
