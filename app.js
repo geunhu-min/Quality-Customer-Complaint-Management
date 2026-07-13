@@ -25,6 +25,180 @@ const sampleState = {
 const defaultCostKeys = ["6/22", "6/23", "6/24", "6/25", "6/26"];
 const penaltyPerClaim = 60000;
 const dashboardStorageKey = "qualityClaimDashboard.savedLinks.v1";
+// 서버 없이(GitHub Pages 등) 처음 여는 브라우저에서도 같은 구글시트 CSV 링크로 자동 복원되도록 하는 기본값.
+// "데이터 삽입 링크 내보내기"로 최신 값을 복사해서 이 배열에 붙여넣고 다시 배포하세요.
+const SEED_SAVED_LINK_GROUPS = [
+  {
+    "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFYXeMShNStCI5zaJkYod1jzt2kZwvRpEbs58ONy7XTDxXKPvwnczeyNmoAWYXwifLhHy6vTBlGqw0/pub?output=csv",
+    "kind": "receiptHistory",
+    "label": "접수내역 (누적데이터)",
+    "groupKey": "receipt-history",
+    "groupTitle": "접수내역 (누적데이터)",
+    "order": 300,
+    "entries": [
+      {
+        "label": "접수내역 (누적데이터)",
+        "sourceSheet": "Sheet1",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSFYXeMShNStCI5zaJkYod1jzt2kZwvRpEbs58ONy7XTDxXKPvwnczeyNmoAWYXwifLhHy6vTBlGqw0/pub?output=csv",
+        "selected": true,
+        "excluded": 0
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1327724814&single=true&output=csv",
+    "kind": "cost",
+    "label": "2025년 마감자료",
+    "groupKey": "existing-25-cost",
+    "groupTitle": "2025년 마감자료",
+    "order": 2025,
+    "entries": [
+      {
+        "label": "1월",
+        "sourceSheet": "1월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1327724814&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "2월",
+        "sourceSheet": "2월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=264078655&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "3월",
+        "sourceSheet": "3월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1544727133&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "4월",
+        "sourceSheet": "4월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1346968907&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "5월",
+        "sourceSheet": "5월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=2040823720&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "6월",
+        "sourceSheet": "6월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=559311695&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "7월",
+        "sourceSheet": "7월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=185586825&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "8월",
+        "sourceSheet": "8월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1996748640&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "9월",
+        "sourceSheet": "9월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1062153671&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "10월",
+        "sourceSheet": "10월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=2020378325&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "11월",
+        "sourceSheet": "11월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=531619125&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "12월",
+        "sourceSheet": "12월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=629107804&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=745914384&single=true&output=csv",
+    "kind": "cost",
+    "label": "2026년 마감자료",
+    "groupKey": "existing-26-cost",
+    "groupTitle": "2026년 마감자료",
+    "order": 2026,
+    "entries": [
+      {
+        "label": "1월",
+        "sourceSheet": "1월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=745914384&single=true&output=csv",
+        "selected": true,
+        "excluded": 22
+      },
+      {
+        "label": "2월",
+        "sourceSheet": "2월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=484452932&single=true&output=csv",
+        "selected": true,
+        "excluded": 28
+      },
+      {
+        "label": "3월",
+        "sourceSheet": "3월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=439556826&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "4월",
+        "sourceSheet": "4월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=469246773&single=true&output=csv",
+        "selected": true,
+        "excluded": 5
+      },
+      {
+        "label": "5월",
+        "sourceSheet": "5월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=2032769594&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "6월",
+        "sourceSheet": "6월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=940348938&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "7월",
+        "sourceSheet": "7월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=1638344096&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      }
+    ]
+  }
+];
 const monthlyStatusSnapshotKey = "qualityClaimDashboard.monthlyStatusSnapshot.v1";
 const imageDbName = "qualityClaimDashboard.images.v1";
 const imageStoreName = "images";
@@ -119,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("clearData")?.addEventListener("click", clearAllData);
   document.getElementById("showSelected")?.addEventListener("click", () => renderAll("선택한 자료만 합산 표시 중"));
   document.getElementById("toggleFileCards")?.addEventListener("click", toggleFileCards);
+  document.getElementById("exportSavedLinkGroups")?.addEventListener("click", exportSeedSavedLinkGroups);
   document.getElementById("clearSelection")?.addEventListener("click", clearSelection);
   document.getElementById("deleteSelected")?.addEventListener("click", deleteSelectedUploads);
   document.getElementById("downloadDb")?.addEventListener("click", downloadLocalDb);
@@ -5676,15 +5851,19 @@ function clearSavedDashboardState() {
 
 async function restoreSavedDashboardState() {
   const raw = localStorage.getItem(dashboardStorageKey);
-  if (!raw) return false;
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch (err) {
-    clearSavedDashboardState();
-    return false;
+  let payload = null;
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch (err) {
+      clearSavedDashboardState();
+      payload = null;
+    }
   }
-  if (!payload?.groups?.length && !payload?.images?.length && !payload?.viewSnapshot) return false;
+  if (!payload?.groups?.length && !payload?.images?.length && !payload?.viewSnapshot) {
+    if (!SEED_SAVED_LINK_GROUPS.length) return false;
+    payload = { groups: SEED_SAVED_LINK_GROUPS };
+  }
   savedLinkGroupsCache = payload.groups || [];
   restoredViewSnapshot = payload.viewSnapshot || null;
 
@@ -5713,6 +5892,27 @@ async function restoreSavedDashboardState() {
     return false;
   } finally {
     restoringSavedState = false;
+  }
+}
+function exportSeedSavedLinkGroups() {
+  const raw = localStorage.getItem(dashboardStorageKey);
+  let groups = [];
+  try {
+    groups = (JSON.parse(raw || "null")?.groups) || [];
+  } catch (_) {
+    groups = [];
+  }
+  if (!groups.length) {
+    alert("내보낼 저장된 링크가 없습니다. 먼저 데이터 삽입으로 링크를 넣어주세요.");
+    return;
+  }
+  const text = `const SEED_SAVED_LINK_GROUPS = ${JSON.stringify(groups, null, 2)};`;
+  const done = () => alert("복사되었습니다. app.js의 SEED_SAVED_LINK_GROUPS 부분에 붙여넣고 저장/배포하세요.");
+  const fail = () => window.prompt("자동 복사에 실패했습니다. 아래 내용을 직접 복사하세요:", text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else {
+    fail();
   }
 }
 
@@ -13910,8 +14110,10 @@ function buildClaimSummaryMeta(latestDate) {
   function applyViewOnlyUi(canEdit) {
     var insertBtn = document.getElementById("openDataInsert");
     var deleteBtn = document.getElementById("toggleFileCards");
+    var exportBtn = document.getElementById("exportSavedLinkGroups");
     if (insertBtn) insertBtn.hidden = !canEdit;
     if (deleteBtn) deleteBtn.hidden = !canEdit;
+    if (exportBtn) exportBtn.hidden = !canEdit;
   }
   function checkCanEdit() {
     var token = getAdminToken();

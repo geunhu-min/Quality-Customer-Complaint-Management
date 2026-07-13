@@ -100,7 +100,6 @@ body>h1{display:none}
     <button class="editOnly" onclick="document.getElementById('importDashboardFile').click()">대시보드 불러오기</button>
     <input type="file" id="importDashboardFile" accept=".json" style="display:none" onchange="importDashboardData(event)">
     <button class="editOnly" onclick="clearAllData()">전체 초기화</button>
-    <button class="canEditOnly" onclick="exportSeedClosingLinkGroups()">CSV 링크 내보내기</button>
     <span class="small editOnly">25/26년 자동인식 · 25년 시트명 월(건수) 자동인식 · 충주() 시트 기준 · VN 제외 · 건당 60,000원 패널티</span>
     <span id="viewOnlyNotice" class="small" style="display:none">보기 전용 모드입니다.</span>
   </div>
@@ -108,7 +107,10 @@ body>h1{display:none}
 </div>
 
 <div class="panel">
-  <h2>클레임현황</h2>
+  <div class="section-head-row">
+    <h2>클레임현황</h2>
+    <button class="canEditOnly" onclick="exportSeedClosingLinkGroups()">CSV 링크 내보내기</button>
+  </div>
   <div id="compareSummary" style="font-size:18px;font-weight:bold;margin:10px 0"></div>
   <div id="comparisonTableWrap"></div>
 </div>
@@ -151,6 +153,159 @@ const LINK_STORAGE_KEY="qualityClaimDashboard.savedLinks.v1";
 // 서버 없이(GitHub Pages 등) 열어도 같은 구글시트 CSV 링크로 재계산되도록 하는 기본값.
 // "내보내기" 버튼으로 최신 값을 복사해서 이 배열에 붙여넣고 다시 배포하세요.
 const SEED_CLOSING_LINK_GROUPS=[
+  {
+    "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1327724814&single=true&output=csv",
+    "kind": "cost",
+    "label": "2025년 마감자료",
+    "groupKey": "existing-25-cost",
+    "groupTitle": "2025년 마감자료",
+    "order": 2025,
+    "entries": [
+      {
+        "label": "1월",
+        "sourceSheet": "1월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1327724814&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "2월",
+        "sourceSheet": "2월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=264078655&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "3월",
+        "sourceSheet": "3월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1544727133&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "4월",
+        "sourceSheet": "4월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1346968907&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "5월",
+        "sourceSheet": "5월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=2040823720&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "6월",
+        "sourceSheet": "6월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=559311695&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "7월",
+        "sourceSheet": "7월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=185586825&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "8월",
+        "sourceSheet": "8월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1996748640&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "9월",
+        "sourceSheet": "9월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=1062153671&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "10월",
+        "sourceSheet": "10월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=2020378325&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "11월",
+        "sourceSheet": "11월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=531619125&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "12월",
+        "sourceSheet": "12월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJXzXGFoYejbdQXDU-kVwNV58v6EZM-V0lUc8-hPRmpZAr6s0F0vm4ltoydVyiiLGXrUV3h87HblIk/pub?gid=629107804&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      }
+    ]
+  },
+  {
+    "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=745914384&single=true&output=csv",
+    "kind": "cost",
+    "label": "2026년 마감자료",
+    "groupKey": "existing-26-cost",
+    "groupTitle": "2026년 마감자료",
+    "order": 2026,
+    "entries": [
+      {
+        "label": "1월",
+        "sourceSheet": "1월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=745914384&single=true&output=csv",
+        "selected": true,
+        "excluded": 22
+      },
+      {
+        "label": "2월",
+        "sourceSheet": "2월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=484452932&single=true&output=csv",
+        "selected": true,
+        "excluded": 28
+      },
+      {
+        "label": "3월",
+        "sourceSheet": "3월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=439556826&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "4월",
+        "sourceSheet": "4월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=469246773&single=true&output=csv",
+        "selected": true,
+        "excluded": 5
+      },
+      {
+        "label": "5월",
+        "sourceSheet": "5월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=2032769594&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "6월",
+        "sourceSheet": "6월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=940348938&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      },
+      {
+        "label": "7월",
+        "sourceSheet": "7월",
+        "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSWCyt-i0tGBGzj2ELfCyn8zJaYPD6PpkvyF3pMjxI_3IURP3Nl977gfqfhZN_S1HrmhllrMSAREG6d/pub?gid=1638344096&single=true&output=csv",
+        "selected": true,
+        "excluded": 0
+      }
+    ]
+  }
 ];
 const EXCLUDE_STORAGE_KEY="dashboardSelectedMonths.excludePenalty.v1";
 const FALLBACK_STORAGE_KEY="dashboardSelectedMonths.fallback.v1";
