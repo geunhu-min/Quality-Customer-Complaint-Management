@@ -265,7 +265,7 @@
     var bars = points.map(function (p, index) {
       var x = padLeft + index * slot + (slot - barWidth) / 2;
       var hoverAttrs = p.day
-        ? ' onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,\'daily\',\'' + p.day + '\',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()" onclick="window.__dailyStableSelectDay&&window.__dailyStableSelectDay(\'' + p.day + '\')"'
+        ? ' onclick="window.__dailyStableSelectDay&&window.__dailyStableSelectDay(\'' + p.day + '\')" ondblclick="window.__dailyStableOpenDayTypePopup&&window.__dailyStableOpenDayTypePopup(\'' + p.day + '\')"'
         : '';
       var isActive = p.day && p.day === dailySelectedDay;
       var bar = '';
@@ -305,10 +305,6 @@
     if (typeof window.openTypePiePopup === "function") window.openTypePiePopup(dayPopupTitle(d), items, sourceItems);
   }
   window.__dailyStableOpenDayTypePopup = openDailyDayTypePopup;
-  window.__dailyStableGetHoverPieData = function (d) {
-    var dayRows = receiptItems.filter(function (r) { return r.dateKey === d; });
-    return { title: dayPopupTitle(d), items: dayTypePieItems(dayRows), sourceItems: sourcePieItems(dayRows) };
-  };
   function dailyAmountShort(amount) {
     if (!amount) return "0";
     return "" + Number((amount / 1000000).toFixed(1));

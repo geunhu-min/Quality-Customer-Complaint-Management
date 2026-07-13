@@ -2898,7 +2898,7 @@ function monthlyDefectBarChartMarkup(months) {
     const x = padLeft + index * slot + (slot - barWidth) / 2;
     const y = padTop + innerH - barH;
     const active = month.week === monthlyDefectSelectedMonth;
-    return `<g class="weekly-svg-bar-group" onclick="selectMonthlyDefectMonth('${escapeJs(month.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'monthly','${escapeJs(month.week)}',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
+    return `<g class="weekly-svg-bar-group" onclick="selectMonthlyDefectMonth('${escapeJs(month.week)}')" ondblclick="openMonthlyDefectTypePopup('${escapeJs(month.week)}')">
       <rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>
       <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>
       <text x="${x + barWidth / 2}" y="${height - 8}" text-anchor="middle" class="weekly-axis-label">${escapeHtml(month.week)}</text>
@@ -4300,7 +4300,7 @@ function weeklyBarChartMarkup(weeks) {
       bar = `<rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>` +
         `<text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>`;
     }
-    return `<g class="weekly-svg-bar-group" onclick="selectWeeklyWeek('${escapeJs(week.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'weekly','${escapeJs(week.week)}',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
+    return `<g class="weekly-svg-bar-group" onclick="selectWeeklyWeek('${escapeJs(week.week)}')" ondblclick="openWeeklyWeekTypePopup('${escapeJs(week.week)}')">
       ${bar}
       <text x="${x + barWidth / 2}" y="${height - 8}" text-anchor="middle" class="weekly-axis-label">${escapeHtml(week.week)}</text>
     </g>`;
@@ -7029,70 +7029,6 @@ function buildClaimSummaryMeta(latestDate) {
       return { label: item.label, value: item.count, amount: item.amount };
     });
     openTypePiePopup(month + " \uC720\uD615\uBCC4 \uD604\uD669", items, monthlyDefectSourcePieItems(scopedRows));
-  };
-
-  function barHoverPieGroupMarkup(title, items, gradient, legendHtml) {
-    if (!items.length) return "";
-    var total = items.reduce(function (sum, item) { return sum + Number(item.value || 0); }, 0);
-    return '<div class="bhp-group"><div class="bhp-group-title">' + safeText(title) + '</div><div class="bhp-body">' +
-      '<div class="bhp-donut" style="background:' + gradient + '"><b>' + numText(total) + '\uAC74</b></div>' +
-      '<div class="bhp-legend">' + legendHtml + '</div></div></div>';
-  }
-
-  function barHoverCardMarkup(title, items, sourceItems) {
-    var typeGroup = barHoverPieGroupMarkup("\uC720\uD615\uBCC4 \uD604\uD669", items, weeklyPieGradient(items), pieLegendWithAmountMarkup(items));
-    var sourceGroup = barHoverPieGroupMarkup("\uC6D0\uC778\uCC98\uBCC4 \uD604\uD669", sourceItems, sourcePieGradientForPopup(sourceItems), sourcePieLegendMarkupForPopup(sourceItems));
-    if (!typeGroup && !sourceGroup) return "";
-    return '<div class="bhp-title">' + safeText(title) + '</div><div class="bhp-groups">' + typeGroup + sourceGroup + '</div>';
-  }
-
-  function ensureBarHoverCard() {
-    var card = document.getElementById("barHoverCard");
-    if (!card) {
-      card = document.createElement("div");
-      card.id = "barHoverCard";
-      card.className = "bar-hover-card";
-      document.body.appendChild(card);
-    }
-    return card;
-  }
-
-  window.showBarHoverPie = function (anchorEl, type, key, evt) {
-    var data = null;
-    if (type === "daily") {
-      data = typeof window.__dailyStableGetHoverPieData === "function" ? window.__dailyStableGetHoverPieData(key) : null;
-    } else if (type === "weekly") {
-      var weekRows = weeklyDashboardMetas(monthlyStatusRows()).filter(function (row) { return row.week === key; });
-      data = { title: key + " \uC720\uD615\uBCC4 \uD604\uD669", items: weeklyTypePieItems(key), sourceItems: weeklySourcePieItems(weekRows) };
-    } else if (type === "monthly") {
-      var monthRows = monthlyDeadlineMetas().filter(function (row) { return row.month === key; });
-      var items = monthlyTypeDetails(monthRows).map(function (item) { return { label: item.label, value: item.count, amount: item.amount }; });
-      data = { title: key + " \uC720\uD615\uBCC4 \uD604\uD669", items: items, sourceItems: monthlyDefectSourcePieItems(monthRows) };
-    }
-    if (!data) return;
-    var html = barHoverCardMarkup(data.title, data.items || [], data.sourceItems || []);
-    if (!html) return;
-    var card = ensureBarHoverCard();
-    card.innerHTML = html;
-    card.classList.add("show");
-    var cardW = card.offsetWidth, cardH = card.offsetHeight;
-    var margin = 20;
-    var rect = anchorEl.getBoundingClientRect();
-    var cx = evt ? evt.clientX : (rect.left + rect.width / 2);
-    var cy = evt ? evt.clientY : rect.top;
-    var left = cx + margin;
-    var top = cy + margin;
-    if (left + cardW > window.innerWidth) left = cx - cardW - margin;
-    if (top + cardH > window.innerHeight) top = cy - cardH - margin;
-    left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
-    top = Math.max(8, Math.min(top, window.innerHeight - cardH - 8));
-    card.style.left = left + "px";
-    card.style.top = top + "px";
-  };
-
-  window.hideBarHoverPie = function () {
-    var card = document.getElementById("barHoverCard");
-    if (card) card.classList.remove("show");
   };
 
   window.openBigTypePiePopup = function (title, items) {

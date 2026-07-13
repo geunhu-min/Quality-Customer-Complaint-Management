@@ -51,6 +51,9 @@ body>h1{display:none}
 .wsvg-bar-value{fill:#111827;font-size:12px;font-weight:800}
 .wideChart .wsvg-axis-label{font-size:8px}
 .wideChart .wsvg-bar-value{font-size:8px}
+#compareChart .wsvg-axis-label,#compareAmountChart .wsvg-axis-label{font-size:9px}
+#compareChart .wsvg-bar-value{font-size:8px}
+#compareAmountChart .wsvg-point-label{font-size:8px}
 .wsvg-bar-group{cursor:default}
 .wsvg-bar-group.clickable{cursor:pointer}
 .wsvg-point-label{fill:#111827;font-size:11px;font-weight:800}
@@ -456,19 +459,20 @@ function svgLineChartMarkup(categories,series,opts={}){
   const allPts=series.map((s,si)=>({
     s,
     color:s.color||SVG_CHART_COLORS[si%SVG_CHART_COLORS.length],
-    pts:s.values.map((v,i)=>({x:padLeft+i*step,y:padTop+innerH-(niceMax?(Number(v||0)/niceMax)*innerH:0),v:Number(v||0),cat:categories[i]}))
+    pts:s.values.map((v,i)=>({x:padLeft+i*step,y:padTop+innerH-(niceMax?(Number(v||0)/niceMax)*innerH:0),v:Number(v||0),cat:categories[i],idx:i}))
   }));
-  const seriesMarkup=allPts.map(({s,color,pts},si)=>{
+  const seriesMarkup=allPts.map(({s,color,pts:fullPts},si)=>{
+    const pts=fullPts.filter(p=>p.v>0);
     const line=pts.map(p=>`${p.x},${p.y}`).join(" ");
     const labelText=p=>svgEsc(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString());
     const tipText=p=>svgEsc(opts.tooltipValueFormatter?opts.tooltipValueFormatter(p.v):(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString()));
     return `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>` +
-      pts.map((p,pi)=>{
-        const order=allPts.map((o,osi)=>osi).sort((a,b)=>allPts[a].pts[pi].y-allPts[b].pts[pi].y);
+      pts.map((p)=>{
+        const order=allPts.map((o,osi)=>osi).sort((a,b)=>allPts[a].pts[p.idx].y-allPts[b].pts[p.idx].y);
         const rank=order.indexOf(si), n=order.length;
         const fromTop=rank, fromBottom=n-1-rank;
         const labelY=fromTop<=fromBottom?p.y-9-fromTop*13:p.y+17+fromBottom*13;
-        return `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues&&p.v?`<text x="${p.x}" y="${labelY}" text-anchor="middle" class="wsvg-point-label" style="fill:${color}">${labelText(p)}</text>`:""}`;
+        return `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues?`<text x="${p.x}" y="${labelY}" text-anchor="middle" class="wsvg-point-label" style="fill:${color}">${labelText(p)}</text>`:""}`;
       }).join("");
   }).join("");
   const svg=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" class="wsvg-svg" role="img">${axis}${seriesMarkup}${xLabels}</svg>`;
@@ -502,7 +506,8 @@ function svgBarChartMarkup(categories,series,opts={}){
       const color=(s.barColors&&s.barColors[ci])||s.color||SVG_CHART_COLORS[si%SVG_CHART_COLORS.length];
       const dbl=opts.onBarDblClick?` class="wsvg-bar-group clickable" ondblclick="${opts.onBarDblClick(cat,ci)}"`:' class="wsvg-bar-group"';
       const labelLines=s.labels?(Array.isArray(s.labels[ci])?s.labels[ci]:[s.labels[ci]]):[opts.valueFormatter?opts.valueFormatter(value):value.toLocaleString()];
-      const labelMarkup=showValues&&value?labelLines.map((line,li)=>`<text x="${x+barWidth/2}" y="${y-6-(labelLines.length-1-li)*13}" text-anchor="middle" class="wsvg-bar-value">${svgEsc(line)}</text>`).join(""):"";
+      if(!value){ bars.push(`<g${dbl}></g>`); return; }
+      const labelMarkup=showValues?labelLines.map((line,li)=>`<text x="${x+barWidth/2}" y="${y-6-(labelLines.length-1-li)*13}" text-anchor="middle" class="wsvg-bar-value">${svgEsc(line)}</text>`).join(""):"";
       const tipText=`${svgEsc(s.name?s.name+" ":"")}${svgEsc(cat)}: ${svgEsc(labelLines.join(" "))}`;
       bars.push(`<g${dbl}><rect x="${x}" y="${y}" width="${Math.max(1,barWidth-2)}" height="${Math.max(1,barH)}" rx="2" fill="${color}" class="wsvg-hover-point" data-tip="${tipText}" data-tip-color="${color}"></rect>${labelMarkup}</g>`);
     });
@@ -795,11 +800,11 @@ function renderCompare(){
   document.getElementById("compareChart").innerHTML=svgBarChartMarkup(months,[
     {name:"2025년 실적",values:months.map(m=>(prev[m]||{count:0}).count||0),color:"#1f73e8"},
     {name:"2026년 실적",values:months.map(m=>(cur[m]||{count:0}).count||0),color:"#e56a00"}
-  ],{width:640,height:340,title:"25년 vs 26년 월별 하자 건수 비교",showValues:false});
+  ],{width:640,height:340,title:"25년 vs 26년 월별 하자 건수 비교"});
   document.getElementById("compareAmountChart").innerHTML=svgLineChartMarkup(months,[
     {name:"2025년 금액",values:months.map(m=>(prev[m]||{amount:0}).amount||0),color:"#1f73e8"},
     {name:"2026년 금액",values:months.map(m=>(cur[m]||{amount:0}).amount||0),color:"#e56a00"}
-  ],{width:640,height:340,axisFormatter:amountAxisFormatter,valueFormatter:amountAxisFormatter,title:"25년 vs 26년 월별 금액 비교",showValues:false});
+  ],{width:640,height:340,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,title:"25년 vs 26년 월별 금액 비교"});
 }
 
 function renderCharts(){
