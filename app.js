@@ -3227,16 +3227,22 @@ function downloadMonthlyItemDefectDetailExcel(itemKeyOrKeys) {
   downloadText(`월하자현황_${safeFileName(name)}.csv`, toCsv(rows), "text/csv;charset=utf-8");
 }
 
+function periodSortKey(label) {
+  return parseInt(String(label || "").replace(/[^0-9]/g, ""), 10) || 999;
+}
+
 function downloadMonthlyItemOriginalExcel(itemKeyOrKeys) {
-  const metas = monthlyItemPopupMetas(itemKeyOrKeys);
+  const metas = monthlyItemPopupMetas(itemKeyOrKeys)
+    .slice()
+    .sort((a, b) => periodSortKey(a.month) - periodSortKey(b.month));
   if (!metas.length) {
     alert("다운로드할 원본 데이터가 없습니다.");
     return;
   }
-  const rows = metas.map((meta) => originalWeeklyRow(meta.row));
+  const rows = metas.map((meta) => ({ "월": meta.month || "", ...originalWeeklyRow(meta.row) }));
   const name = Array.isArray(itemKeyOrKeys) ? "TOP10_원본" : `${itemKeyOrKeys}_원본`;
   if (window.XLSX) {
-    const headers = originalWeeklyHeaders(metas.map((meta) => meta.row));
+    const headers = ["월", ...originalWeeklyHeaders(metas.map((meta) => meta.row))];
     const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "원본");
@@ -4665,15 +4671,17 @@ function downloadWeeklyItemDefectDetailExcel(itemKeyOrKeys) {
 }
 
 function downloadWeeklyItemOriginalExcel(itemKeyOrKeys) {
-  const metas = weeklyItemPopupMetas(itemKeyOrKeys);
+  const metas = weeklyItemPopupMetas(itemKeyOrKeys)
+    .slice()
+    .sort((a, b) => periodSortKey(a.week) - periodSortKey(b.week));
   if (!metas.length) {
     alert("다운로드할 원본 데이터가 없습니다.");
     return;
   }
-  const rows = metas.map((meta) => originalWeeklyRow(meta.row));
+  const rows = metas.map((meta) => ({ "주차": meta.week || "", ...originalWeeklyRow(meta.row) }));
   const name = Array.isArray(itemKeyOrKeys) ? "TOP5_원본" : `${itemKeyOrKeys}_원본`;
   if (window.XLSX) {
-    const headers = originalWeeklyHeaders(metas.map((meta) => meta.row));
+    const headers = ["주차", ...originalWeeklyHeaders(metas.map((meta) => meta.row))];
     const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "원본");
@@ -7293,6 +7301,14 @@ function buildClaimSummaryMeta(latestDate) {
     return row;
   }
 
+  var DETAIL_LINE_ORDER = ["1라인", "4라인", "7라인", "외주", "구매"];
+  function detailLineValue(meta) {
+    return String(meta.line || monthlyLineLabel(meta) || "");
+  }
+  function detailLineSortKey(meta) {
+    var index = DETAIL_LINE_ORDER.indexOf(detailLineValue(meta));
+    return index < 0 ? DETAIL_LINE_ORDER.length : index;
+  }
   function detailMetas(scope, options) {
     options = options || {};
     var rows = scope === "monthly" ? monthlyDefectScopedRows(monthlyDeadlineMetas()) : weeklyScopedMetas();
@@ -7300,7 +7316,8 @@ function buildClaimSummaryMeta(latestDate) {
     if (options.type) rows = rows.filter(function (meta) { return String(meta.type || "") === String(options.type); });
     if (options.itemKey) rows = rows.filter(function (meta) { return metaKey(meta) === options.itemKey; });
     return rows.slice().sort(function (a, b) {
-      return metaKey(a).localeCompare(metaKey(b), "ko", { numeric: true }) ||
+      return detailLineSortKey(a) - detailLineSortKey(b) ||
+        metaKey(a).localeCompare(metaKey(b), "ko", { numeric: true }) ||
         String(a.type || "").localeCompare(String(b.type || ""), "ko", { numeric: true }) ||
         String(a.receiptNo || "").localeCompare(String(b.receiptNo || ""), "ko", { numeric: true });
     });
@@ -7372,12 +7389,24 @@ function buildClaimSummaryMeta(latestDate) {
   };
 
   window.downloadClaimDetailOriginalExcel = function (payload) {
-    var metas = detailMetas(payload.scope, payload.options);
+    var isMonthly = payload.scope === "monthly";
+    var periodField = isMonthly ? "month" : "week";
+    var periodLabel = isMonthly ? "\uC6D4" : "\uC8FC\uCC28";
+    var metas = detailMetas(payload.scope, payload.options)
+      .slice()
+      .sort(function (a, b) { return periodSortKey(a[periodField]) - periodSortKey(b[periodField]); });
     if (!metas.length) return alert(L.noData);
-    var rawRows = metas.map(function (meta) { return originalWeeklyRow(meta.row || {}); });
+    var rawRows = metas.map(function (meta) {
+      var out = {};
+      out[periodLabel] = meta[periodField] || "";
+      var original = originalWeeklyRow(meta.row || {});
+      for (var key in original) out[key] = original[key];
+      return out;
+    });
     var fileName = (payload.scope === "monthly" ? L.monthlyTitle : L.weeklyTitle) + "_" + safeFileName((payload.options && (payload.options.itemKey || payload.options.line)) || "\uC804\uCCB4") + "_\uC6D0\uBCF8.xlsx";
     if (window.XLSX) {
-      var worksheet = XLSX.utils.json_to_sheet(rawRows, { header: originalWeeklyHeaders(metas.map(function (meta) { return meta.row || {}; })) });
+      var headers = [periodLabel].concat(originalWeeklyHeaders(metas.map(function (meta) { return meta.row || {}; })));
+      var worksheet = XLSX.utils.json_to_sheet(rawRows, { header: headers });
       var workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "\uC6D0\uBCF8");
       XLSX.writeFile(workbook, fileName);

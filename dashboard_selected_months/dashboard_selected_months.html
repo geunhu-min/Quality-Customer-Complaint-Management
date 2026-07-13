@@ -1498,11 +1498,19 @@ function downloadBrandRawExcel(){
   XLSX.writeFile(wb,currentBrandRawExport.fileName);
 }
 function downloadYearRawExcel(year){
-  const rows=((dashboard.years[year]&&dashboard.years[year]["종합"])||{rows:[]}).rows||[];
+  const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  const yearData=dashboard.years[year]||{};
+  const monthByRow=[];
+  const rows=[];
+  months.forEach(m=>{
+    ((yearData[m]&&yearData[m].rows)||[]).forEach(r=>{ rows.push(r); monthByRow.push(m); });
+  });
   if(!rows.length){alert(`${year}년 원본 데이터가 없습니다.`);return}
   const rawCols=["유형","세부유형","포장","브랜드","제품코드","색상","수량","금액","하자상세"];
   const data=popupDataFromRows(rows, rawCols);
-  const ws=XLSX.utils.aoa_to_sheet([data.headers, ...data.values]);
+  const headers=["월", ...data.headers];
+  const values=data.values.map((v,i)=>[monthByRow[i], ...v]);
+  const ws=XLSX.utils.aoa_to_sheet([headers, ...values]);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"원본");
   XLSX.writeFile(wb,`${year}년_전체원본데이터.xlsx`);
