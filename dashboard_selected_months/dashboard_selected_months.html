@@ -462,11 +462,13 @@ function svgLineChartMarkup(categories,series,opts={}){
     const line=pts.map(p=>`${p.x},${p.y}`).join(" ");
     const labelText=p=>svgEsc(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString());
     const tipText=p=>svgEsc(opts.tooltipValueFormatter?opts.tooltipValueFormatter(p.v):(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString()));
-    const below=si%2===1, tier=Math.floor(si/2);
-    const labelY=below?(p=>p.y+17+tier*13):(p=>p.y-9-tier*13);
     return `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>` +
-      pts.map((p)=>{
-        return `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues&&p.v?`<text x="${p.x}" y="${labelY(p)}" text-anchor="middle" class="wsvg-point-label">${labelText(p)}</text>`:""}`;
+      pts.map((p,pi)=>{
+        const order=allPts.map((o,osi)=>osi).sort((a,b)=>allPts[a].pts[pi].y-allPts[b].pts[pi].y);
+        const rank=order.indexOf(si), n=order.length;
+        const fromTop=rank, fromBottom=n-1-rank;
+        const labelY=fromTop<=fromBottom?p.y-9-fromTop*13:p.y+17+fromBottom*13;
+        return `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues&&p.v?`<text x="${p.x}" y="${labelY}" text-anchor="middle" class="wsvg-point-label" style="fill:${color}">${labelText(p)}</text>`:""}`;
       }).join("");
   }).join("");
   const svg=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" class="wsvg-svg" role="img">${axis}${seriesMarkup}${xLabels}</svg>`;
