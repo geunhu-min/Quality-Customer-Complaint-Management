@@ -8357,7 +8357,7 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="/defect-close-dashboard/" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
   }
   function selectedWeeklyDeadlineEntries() {
     var year = n("weeklyYearSelect", new Date().getFullYear());
@@ -8479,7 +8479,7 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="/defect-close-dashboard/" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
   }
   function rowCells(row) { return (row && row.__cells) || (row && row.__raw && row.__raw.__cells) || []; }
   function rowHeaders(row) { return (row && row.__headers) || (row && row.__raw && row.__raw.__headers) || []; }
@@ -8812,7 +8812,7 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="/defect-close-dashboard/" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
   }
   function scheduleRestore() { setTimeout(restoreFrame, 0); setTimeout(restoreFrame, 100); }
   document.addEventListener("click", function (event) {
@@ -10214,7 +10214,7 @@ function buildClaimSummaryMeta(latestDate) {
       var title = (entryMonthByTitle(entry) || "") + K.month;
       return '<article class="file-card"><div class="topline"><span class="name">' + html(title) + '</span><div class="card-actions"><input type="checkbox" ' + (entry.selected ? 'checked' : '') + ' onclick="event.stopPropagation();toggleUpload(\'' + id + '\', this.checked)" /><button class="delete-btn" type="button" onclick="event.stopPropagation();deleteUpload(\'' + id + '\')">' + K.deleteText + '</button></div></div><div class="meta">' + K.qualityCost + '</div><div class="count">' + fmt(count) + K.caseUnit + '</div><div class="meta">' + html(entry.sourceSheet || entry.label || "") + '</div><div class="amount-line">' + money(entryAmountV8(entry)) + '</div><div class="exclude-row" onclick="event.stopPropagation();"><span>' + K.penaltyExcluded + '</span><input type="number" min="0" max="' + count + '" value="' + Number(entry.excluded || 0) + '" onchange="setExcluded(\'' + id + '\', this.value);setTimeout(window.renderClaimAccumV8,120)" /><span>' + K.caseUnit + '</span></div></article>';
     }).join("");
-    panel.innerHTML = '<section class="sheet-section"><div class="claim-accum-header"><button id="claimAccumToggle" class="claim-accum-title-btn" type="button" aria-expanded="false">&gt; ' + K.claimAccum + '</button><div class="claim-accum-controls"><label>' + K.year + ' <select id="claimAccumYearSelect">' + options + '</select></label><button type="button" onclick="selectCheckedOnly()">' + K.selectedSum + '</button><button type="button" onclick="clearSelection()">' + K.unselectMonth + '</button></div></div><div id="claimAccumBody" class="dashboard-group-body is-hidden"><div class="claim-accum-card-grid"><article class="file-card aggregate-card active"><div class="topline"><span class="name">' + K.total + '</span></div><div class="meta">' + String(year).slice(-2) + '\uB144 \uB9C8\uAC10\uC790\uB8CC</div><div class="count">' + fmt(totalCount) + K.caseUnit + '</div><div class="amount-line">' + money(totalAmount) + '</div><div class="meta">' + K.penaltyExcluded + ' ' + fmt(totalExcluded) + K.caseUnit + '</div></article>' + cards + '</div></div></section><div class="claim-accum-frame-wrap"><iframe class="defect-close-frame" src="/defect-close-dashboard/" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe></div>';
+    panel.innerHTML = '<section class="sheet-section"><div class="claim-accum-header"><button id="claimAccumToggle" class="claim-accum-title-btn" type="button" aria-expanded="false">&gt; ' + K.claimAccum + '</button><div class="claim-accum-controls"><label>' + K.year + ' <select id="claimAccumYearSelect">' + options + '</select></label><button type="button" onclick="selectCheckedOnly()">' + K.selectedSum + '</button><button type="button" onclick="clearSelection()">' + K.unselectMonth + '</button></div></div><div id="claimAccumBody" class="dashboard-group-body is-hidden"><div class="claim-accum-card-grid"><article class="file-card aggregate-card active"><div class="topline"><span class="name">' + K.total + '</span></div><div class="meta">' + String(year).slice(-2) + '\uB144 \uB9C8\uAC10\uC790\uB8CC</div><div class="count">' + fmt(totalCount) + K.caseUnit + '</div><div class="amount-line">' + money(totalAmount) + '</div><div class="meta">' + K.penaltyExcluded + ' ' + fmt(totalExcluded) + K.caseUnit + '</div></article>' + cards + '</div></div></section><div class="claim-accum-frame-wrap"><iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe></div>';
     var ys = el("claimAccumYearSelect");
     if (ys) ys.addEventListener("change", function () { window.__claimAccumYearV8 = Number(ys.value) || year; setTimeout(renderClaimAccumV8, 60); });
     var toggle = el("claimAccumToggle");
@@ -10384,7 +10384,7 @@ function buildClaimSummaryMeta(latestDate) {
     ensureClaimAccumFrameOnlyCss();
     var existing = panel.querySelector("iframe.defect-close-frame");
     if (existing && panel.children.length === 1) return;
-    panel.innerHTML = '<div class="claim-accum-frame-wrap"><iframe class="defect-close-frame" src="/defect-close-dashboard/" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669" loading="lazy"></iframe></div>';
+    panel.innerHTML = '<div class="claim-accum-frame-wrap"><iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669" loading="lazy"></iframe></div>';
   }
   window.renderClaimAccumV8 = renderClaimAccumFrameOnly;
   window.renderClaimAccumV7 = renderClaimAccumFrameOnly;
@@ -14070,7 +14070,7 @@ function buildClaimSummaryMeta(latestDate) {
     var body = document.getElementById("defectCloseDashboardBody");
     if (!body) return;
     if (body.querySelector(".claim-accum-header") || body.querySelector("#claimAccumToggle") || body.querySelector(".defect-close-grid")) {
-      body.innerHTML = '<iframe class="defect-close-frame" title="defect close dashboard" src="/defect-close-dashboard/" style="width:100%;height:780px;border:0;"></iframe>';
+      body.innerHTML = '<iframe class="defect-close-frame" title="defect close dashboard" src="dashboard_selected_months/dashboard_selected_months.html" style="width:100%;height:780px;border:0;"></iframe>';
     }
   }
   document.addEventListener("click", function (event) {

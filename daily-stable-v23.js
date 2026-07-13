@@ -1000,7 +1000,7 @@
     var body = document.getElementById("defectCloseDashboardBody");
     if (!body) return;
     if (body.querySelector(".claim-accum-header") || body.querySelector("#claimAccumToggle") || body.querySelector(".claim-accum-card-grid")) {
-      body.innerHTML = '<iframe class="defect-close-frame" title="defect close dashboard" src="/defect-close-dashboard/" style="width:100%;height:780px;border:0;"></iframe>';
+      body.innerHTML = '<iframe class="defect-close-frame" title="defect close dashboard" src="dashboard_selected_months/dashboard_selected_months.html" style="width:100%;height:780px;border:0;"></iframe>';
     }
   }
   document.addEventListener("click", function (event) {

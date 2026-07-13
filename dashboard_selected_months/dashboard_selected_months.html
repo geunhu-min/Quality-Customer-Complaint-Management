@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>26년 하자 마감현황</title>
 <script>
-if(location.pathname.startsWith("/defect-close-dashboard"))document.documentElement.classList.add("embeddedMode");
+if(window.self!==window.top)document.documentElement.classList.add("embeddedMode");
 </script>
 <script src="./xlsx.full.min.js"></script>
 <style>
@@ -309,7 +309,7 @@ const SEED_CLOSING_LINK_GROUPS=[
 ];
 const EXCLUDE_STORAGE_KEY="dashboardSelectedMonths.excludePenalty.v1";
 const FALLBACK_STORAGE_KEY="dashboardSelectedMonths.fallback.v1";
-const EMBEDDED_MODE=location.pathname.startsWith("/defect-close-dashboard");
+const EMBEDDED_MODE=window.self!==window.top;
 let dashboard={years:{"2025":{},"2026":{}}};
 let active="종합";
 let canEdit=false;
