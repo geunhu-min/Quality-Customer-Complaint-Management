@@ -6876,6 +6876,9 @@ function buildClaimSummaryMeta(latestDate) {
       button.addEventListener("click", function () {
         window.__qualityCostCollapsedFinal = !window.__qualityCostCollapsedFinal;
         applyCostCollapseFinal();
+        if (!window.__qualityCostCollapsedFinal && typeof window.__resetWeeklyReceiptToLastWeek === "function") {
+          window.__resetWeeklyReceiptToLastWeek();
+        }
       });
     }
     applyCostCollapseFinal();

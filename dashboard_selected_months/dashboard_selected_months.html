@@ -1238,12 +1238,17 @@ function typeDetailBarItems(type){
   const matched=rows.filter(r=>r["유형"]===type);
   const detailMap={};
   matched.forEach(r=>{const k=String(r["세부유형"]||"미분류").trim()||"미분류";detailMap[k]=(detailMap[k]||0)+1});
-  return Object.entries(detailMap).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
+  const items=Object.entries(detailMap).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
+  const major=items.filter(i=>i.count>5);
+  const minorTotal=items.filter(i=>i.count<=5).reduce((s,i)=>s+i.count,0);
+  const barItems=major.map((i,idx)=>({name:i.name,count:i.count,color:SVG_CHART_COLORS[idx%SVG_CHART_COLORS.length]}));
+  if(minorTotal>0)barItems.push({name:"기타",count:minorTotal,color:"#495057"});
+  return barItems;
 }
 function openTypeDetailBarChart(type){
   const items=typeDetailBarItems(type);
   const chartHtml=items.length
-    ? svgBarChartMarkup(items.map(i=>i.name),[{values:items.map(i=>i.count),color:getColor(type)}],{width:1050,height:420,tickAngle:-30,valueFormatter:v=>v+"건",title:`${type} 세부유형별 현황 (${active})`})
+    ? svgBarChartMarkup(items.map(i=>i.name),[{values:items.map(i=>i.count),barColors:items.map(i=>i.color)}],{width:1050,height:420,padBottom:34,valueFormatter:v=>v+"건",title:`${type} 세부유형별 현황 (${active})`})
     : `<div style="text-align:center;color:#8b95a1;padding:40px 0">표시할 데이터가 없습니다.</div>`;
   openChartPopup("TypeDetailBar",`${type} 세부유형별 현황 (${active})`,chartHtml);
 }

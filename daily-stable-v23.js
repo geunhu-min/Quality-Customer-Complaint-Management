@@ -570,10 +570,7 @@
   function ensureDetailDateInput() {
     var box = document.getElementById("detailDateSelect");
     if (!box) return "";
-    if (!box.value) {
-      var sortedKeys = receiptItems.map(function (r) { return r.dateKey; }).sort();
-      box.value = sortedKeys.length ? sortedKeys[sortedKeys.length - 1] : dateKey(new Date());
-    }
+    if (!box.value) box.value = dateKey(new Date());
     return box.value;
   }
   function normalizeMatchKey(v) {
@@ -676,15 +673,31 @@
     if (!y.options.length) for (var yy = 2024; yy <= 2027; yy++) y.appendChild(new Option(yy + "\uB144", String(yy)));
     if (firstRun || !y.value) y.value = String(now.getFullYear());
     if (firstRun || !sd.value || !ed.value) {
-      var mon = monday(now);
-      var fri = new Date(mon.getTime()); fri.setDate(fri.getDate() + 4);
-      sd.value = dateKey(mon);
-      ed.value = dateKey(fri);
+      var lastWeek = lastWeekMonToFri(now);
+      sd.value = lastWeek.startKey;
+      ed.value = lastWeek.endKey;
     }
     if (ed.value < sd.value) ed.value = sd.value;
     var year = +(txt(y.value).replace(/[^0-9]/g, "")) || now.getFullYear();
     return { year: year, startKey: sd.value, endKey: ed.value };
   }
+  function lastWeekMonToFri(now) {
+    var thisMon = monday(now);
+    var lastMon = new Date(thisMon.getTime()); lastMon.setDate(lastMon.getDate() - 7);
+    var lastFri = new Date(lastMon.getTime()); lastFri.setDate(lastFri.getDate() + 4);
+    return { startKey: dateKey(lastMon), endKey: dateKey(lastFri), year: lastMon.getFullYear() };
+  }
+  window.__resetWeeklyReceiptToLastWeek = function () {
+    var y = document.getElementById("weeklyReceiptYearSelect");
+    var sd = document.getElementById("weeklyReceiptStartDateInput");
+    var ed = document.getElementById("weeklyReceiptEndDateInput");
+    if (!sd || !ed) return;
+    var lastWeek = lastWeekMonToFri(new Date());
+    sd.value = lastWeek.startKey;
+    ed.value = lastWeek.endKey;
+    if (y) y.value = String(lastWeek.year);
+    scheduleStableRender();
+  };
   var PACKAGING_OPTIONS = ["4라인", "7라인"];
   var PACKAGING_OTHER_VALUE = "__other__";
   function ensurePackagingSelectOptions() {
