@@ -152,6 +152,10 @@ body>h1{display:none}
 
 <script>
 const PENALTY=60000, CURRENT_YEAR="2026", PREV_YEAR="2025";
+const INSPECTOR_COUNTS={
+  "2025":[7,7,7,7,7,7,8,9,8,9,9,11],
+  "2026":[10,10,11,12,10,8,8,null,null,null,null,null]
+};
 const LINK_STORAGE_KEY="qualityClaimDashboard.savedLinks.v1";
 // 서버 없이(GitHub Pages 등) 열어도 같은 구글시트 CSV 링크로 재계산되도록 하는 기본값.
 // "내보내기" 버튼으로 최신 값을 복사해서 이 배열에 붙여넣고 다시 배포하세요.
@@ -795,7 +799,9 @@ function renderCompare(){
   table+=`<tr style="background:#f5fff5"><th>증감률 (%)</th>${months.map(m=>{const p=(prev[m]||{count:0}).count||0,c=(cur[m]||{count:0}).count||0,d=c-p,r=p?Math.round(d/p*100):0,col=r>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${p?r+"%":"-"}</td>`}).join("")}<td style="text-align:right;color:${rateColor};font-weight:bold">${rate}%</td></tr>`;
   table+=`<tr><th>25년 금액</th>${months.map(m=>`<td style="text-align:right">${Number((prev[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${Number((prev["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
   table+=`<tr><th>26년 금액</th>${months.map(m=>`<td style="text-align:right">${Number((cur[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${Number((cur["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
-  table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${months.map(m=>{const p=(prev[m]||{amount:0}).amount||0,c=(cur[m]||{amount:0}).amount||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${Number(d).toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${Number(((cur["종합"]||{amount:0}).amount||0)-((prev["종합"]||{amount:0}).amount||0)).toLocaleString()}</td></tr></table></div>`;
+  table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${months.map(m=>{const p=(prev[m]||{amount:0}).amount||0,c=(cur[m]||{amount:0}).amount||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${Number(d).toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${Number(((cur["종합"]||{amount:0}).amount||0)-((prev["종합"]||{amount:0}).amount||0)).toLocaleString()}</td></tr>`;
+  table+=`<tr><th>25년검사원</th>${months.map((m,i)=>`<td style="text-align:right">${INSPECTOR_COUNTS["2025"][i]!=null?INSPECTOR_COUNTS["2025"][i]:"-"}</td>`).join("")}<td style="text-align:right">-</td></tr>`;
+  table+=`<tr><th>26년검사원</th>${months.map((m,i)=>`<td style="text-align:right">${INSPECTOR_COUNTS["2026"][i]!=null?INSPECTOR_COUNTS["2026"][i]:"-"}</td>`).join("")}<td style="text-align:right">-</td></tr></table></div>`;
   document.getElementById("comparisonTableWrap").innerHTML=table;
   document.getElementById("compareChart").innerHTML=svgBarChartMarkup(months,[
     {name:"2025년 실적",values:months.map(m=>(prev[m]||{count:0}).count||0),color:"#1f73e8"},
