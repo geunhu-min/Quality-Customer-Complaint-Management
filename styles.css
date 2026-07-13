@@ -1901,7 +1901,8 @@ main {
   text-shadow: 0 0 0 currentColor;
 }
 
-.detail-title select {
+.detail-title select,
+.detail-title input[type="date"] {
   min-width: 138px;
   height: 32px;
   padding: 0 10px;
@@ -1910,6 +1911,7 @@ main {
   background: #ffffff;
   font-size: 14px;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .detail-table {

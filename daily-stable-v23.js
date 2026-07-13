@@ -567,24 +567,14 @@
       table.innerHTML = html;
     }
   }
-  function renderDetailOptions(weekRows) {
-    var sel = selected();
+  function ensureDetailDateInput() {
     var box = document.getElementById("detailDateSelect");
-    if (!sel || !box) return "";
-    var days = (sel.week && sel.week.days) || [];
-    var old = box.value;
-    var periodKey = [sel.year, sel.month, sel.weekNo].join("|");
-    var rowDays = new Set(weekRows.map(function (r) { return r.dateKey; }));
-    if (box.dataset.v23Days !== days.join("|")) {
-      box.innerHTML = days.map(function (d) { return '<option value="' + d + '">' + d + '</option>'; }).join("");
-      box.dataset.v23Days = days.join("|");
+    if (!box) return "";
+    if (!box.value) {
+      var sortedKeys = receiptItems.map(function (r) { return r.dateKey; }).sort();
+      box.value = sortedKeys.length ? sortedKeys[sortedKeys.length - 1] : dateKey(new Date());
     }
-    var daysWithData = days.filter(function (d) { return rowDays.has(d); });
-    var latestDataDay = daysWithData.length ? daysWithData[daysWithData.length - 1] : (days[0] || "");
-    var preferred = periodKey !== lastDetailPeriodKey ? latestDataDay : (days.indexOf(old) >= 0 ? old : latestDataDay);
-    lastDetailPeriodKey = periodKey;
-    if (box.value !== preferred) box.value = preferred;
-    return preferred;
+    return box.value;
   }
   function normalizeMatchKey(v) {
     return txt(v).replace(/[^0-9A-Za-z가-힣]/g, "").toUpperCase();
@@ -780,8 +770,8 @@
     }
     var set = new Set((s.week && s.week.days) || []);
     var weekRows = receiptItems.filter(function (r) { return r.year === s.year && r.month === s.month && set.has(r.dateKey); });
-    var detailDate = renderDetailOptions(weekRows);
-    var detailRows = weekRows.filter(function (r) { return r.dateKey === detailDate; });
+    var detailDate = ensureDetailDateInput();
+    var detailRows = receiptItems.filter(function (r) { return r.dateKey === detailDate; });
     var key = [s.year, s.month, s.weekNo, detailDate, receiptItems.length, weekRows.length, detailRows.length].join("|");
     var cards = document.getElementById("dailyReceiptCards");
     var needsCardsRepair = cards && (!cards.querySelector(".weekly-kpi") || (cards.textContent || "").indexOf("\uC811\uC218\uAC74\uC218") < 0);
@@ -928,7 +918,7 @@
     var weekRows = receiptItems.filter(function (r) { return r.year === s.year && r.month === s.month && set.has(r.dateKey); });
     var detailSelect = document.getElementById("detailDateSelect");
     var detailDate = (detailSelect && detailSelect.value) || "";
-    var detailRows = weekRows.filter(function (r) { return r.dateKey === detailDate; });
+    var detailRows = receiptItems.filter(function (r) { return r.dateKey === detailDate; });
     return { s: s, weekRows: weekRows, detailRows: detailRows, detailDate: detailDate };
   }
   window.__dailyStableExportDay = function () {
@@ -944,7 +934,7 @@
   function openDetailExportPopup() {
     var data = currentRowsForExport();
     if (!data) return;
-    var rows = data.detailRows.length ? data.detailRows : data.weekRows;
+    var rows = data.detailRows;
     var sorted = sortDetails(rows);
     var bodyRows = sorted.map(function (r, i) {
       var defect = esc(r.defect).replace(/\n/g, "<br>");
