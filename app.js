@@ -14093,7 +14093,10 @@ function buildClaimSummaryMeta(latestDate) {
     fetch("/api/config", { headers: token ? { "X-Admin-Token": token } : {} })
       .then(function (res) { return res.json(); })
       .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
-      .catch(function () {});
+      .catch(function () {
+        var exportBtn = document.getElementById("exportSavedLinkGroups");
+        if (exportBtn) exportBtn.hidden = true;
+      });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);
   else checkCanEdit();
