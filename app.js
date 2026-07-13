@@ -2677,17 +2677,14 @@ function renderWeeklyDefect() {
         <div class="weekly-kpi">
           <span>${escapeHtml(periodPrefix)} 클레임건수</span>
           <strong>${formatNumber(stats.totalCount)}</strong><em>건</em>
-          <small>접수번호 기준 카운트</small>
         </div>
         <div class="weekly-kpi">
-          <span>${escapeHtml(periodPrefix)} 총 손실 금액</span>
+          <span>${escapeHtml(periodPrefix)} 총 손실 금액 <span class="weekly-kpi-note">(제품가+건당60,000)</span></span>
           <strong>${formatNumber(stats.totalAmount)}</strong><em>원</em>
-          <small>L열 금액 + 건수당 60,000원</small>
         </div>
         <div class="weekly-kpi">
           <span>${escapeHtml(periodPrefix)} 주요 클레임 품목</span>
           <button class="weekly-main-item-button" type="button" onclick="openWeeklyTopItemsPopup()">${escapeHtml(stats.topItem.displayLabel || stats.topItem.label)}</button><em>${formatNumber(stats.topItem.count)}건</em>
-          <small>I열 품목명 + J열 색상 / 건수 TOP 5</small>
           ${weeklyTopItemsInlineMarkup(stats.topItems)}
         </div>
       </div>
@@ -2734,17 +2731,14 @@ function renderMonthDefect() {
         <div class="weekly-kpi">
           <span>${escapeHtml(periodPrefix)} 클레임건수</span>
           <strong>${formatNumber(totalCount)}</strong><em>건</em>
-          <small>금년도 마감자료 월별 합계</small>
         </div>
         <div class="weekly-kpi">
-          <span>${escapeHtml(periodPrefix)} 총 손실 금액</span>
+          <span>${escapeHtml(periodPrefix)} 총 손실 금액 <span class="weekly-kpi-note">(제품가+건당60,000)</span></span>
           <strong>${formatNumber(totalAmount)}</strong><em>원</em>
-          <small>마감 금액 + 건수당 60,000원</small>
         </div>
         <div class="weekly-kpi">
           <span>${escapeHtml(periodPrefix)} 주요 클레임 품목</span>
           <button class="weekly-main-item-button" type="button" onclick="openMonthlyTopItemsPopup()">${escapeHtml(topItems[0]?.displayLabel || "-")}</button><em>${formatNumber(topItems[0]?.count || 0)}건</em>
-          <small>제품코드 + 색상 / 건수 TOP 10</small>
           ${monthlyTopItemsInlineMarkup(topItems)}
         </div>
       </div>
@@ -4101,7 +4095,7 @@ function weeklyDashboardStats(rows) {
     totalAmount: total.amount,
     topItem: topItems[0] || { key: "-", label: "-", displayLabel: "-", quantity: 0, amount: 0 },
     topItems,
-    sourcePie: weeklySourcePieItems(metas)
+    sourcePie: weeklySourcePieItems(scopedRows)
   };
 }
 
@@ -4114,7 +4108,7 @@ function weeklySourcePieItems(rows) {
     const label = WEEKLY_SOURCE_PIE_ORDER.includes(row.line) ? row.line : "기타";
     counts.set(label, (counts.get(label) || 0) + 1);
   });
-  return WEEKLY_SOURCE_PIE_ORDER.map((label) => ({ label, value: counts.get(label) || 0 })).filter((item) => item.value > 0);
+  return WEEKLY_SOURCE_PIE_ORDER.map((label) => ({ label, value: counts.get(label) || 0 })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
 }
 
 function weeklySourcePieMarkup(items) {
@@ -6264,7 +6258,7 @@ function monthlyDefectSourcePieItems(rows) {
     const label = WEEKLY_SOURCE_PIE_ORDER.includes(raw) ? raw : "기타";
     counts.set(label, (counts.get(label) || 0) + 1);
   });
-  return WEEKLY_SOURCE_PIE_ORDER.map((label) => ({ label, value: counts.get(label) || 0 })).filter((item) => item.value > 0);
+  return WEEKLY_SOURCE_PIE_ORDER.map((label) => ({ label, value: counts.get(label) || 0 })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
 }
 
 function monthlyCauseSummary(rows) {

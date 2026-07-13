@@ -714,6 +714,13 @@ main {
   font-weight: 700;
 }
 
+.weekly-kpi span.weekly-kpi-note {
+  display: inline;
+  color: #7b8794;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .weekly-kpi-tags {
   display: flex;
   flex-wrap: wrap;

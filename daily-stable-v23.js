@@ -263,16 +263,20 @@
         '<text x="' + (padLeft - 8) + '" y="' + y + '" text-anchor="end" dominant-baseline="middle" class="weekly-axis-label">' + comma(tick) + '</text>';
     }).join('');
     var bars = points.map(function (p, index) {
-      var barH = niceMax ? (p.value / niceMax) * innerH : 0;
       var x = padLeft + index * slot + (slot - barWidth) / 2;
-      var y = padTop + innerH - barH;
       var hoverAttrs = p.day
         ? ' onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,\'daily\',\'' + p.day + '\',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()" onclick="window.__dailyStableSelectDay&&window.__dailyStableSelectDay(\'' + p.day + '\')"'
         : '';
       var isActive = p.day && p.day === dailySelectedDay;
+      var bar = '';
+      if (p.value > 0) {
+        var barH = niceMax ? (p.value / niceMax) * innerH : 0;
+        var y = padTop + innerH - barH;
+        bar = '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + Math.max(1, barH) + '" rx="3" class="weekly-svg-bar' + (isActive ? " active" : "") + '"></rect>' +
+          '<text x="' + (x + barWidth / 2) + '" y="' + (y - 6) + '" text-anchor="middle" class="weekly-svg-bar-value">' + comma(p.value) + unit + '</text>';
+      }
       return '<g class="weekly-svg-bar-group"' + hoverAttrs + '>' +
-        '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + Math.max(1, barH) + '" rx="3" class="weekly-svg-bar' + (isActive ? " active" : "") + '"></rect>' +
-        '<text x="' + (x + barWidth / 2) + '" y="' + (y - 6) + '" text-anchor="middle" class="weekly-svg-bar-value">' + comma(p.value) + unit + '</text>' +
+        bar +
         '<text x="' + (x + barWidth / 2) + '" y="' + (height - 8) + '" text-anchor="middle" class="weekly-axis-label">' + esc(p.label) + '</text>' +
       '</g>';
     }).join('');
@@ -305,32 +309,45 @@
     var dayRows = receiptItems.filter(function (r) { return r.dateKey === d; });
     return { title: dayPopupTitle(d), items: dayTypePieItems(dayRows), sourceItems: sourcePieItems(dayRows) };
   };
-  function dailyLineChartMarkup(points, unit) {
+  function dailyAmountShort(amount) {
+    if (!amount) return "0";
+    return "" + Number((amount / 1000000).toFixed(1));
+  }
+  function dailyAmountAxisFormatter(tick) {
+    return Number((tick / 1000000).toFixed(1)) + "백만원";
+  }
+  function dailyLineChartMarkup(points, unit, labelFormatter, axisFormatter) {
     var width = 640, height = 220, padLeft = 56, padRight = 14, padTop = 26, padBottom = 30;
     var innerW = width - padLeft - padRight;
     var innerH = height - padTop - padBottom;
     var axisData = niceAxisTicks(Math.max.apply(null, points.map(function (p) { return p.value; }).concat([1])));
     var ticks = axisData.ticks, niceMax = axisData.niceMax;
     var step = points.length > 1 ? innerW / (points.length - 1) : 0;
-    var coords = points.map(function (p, i) {
+    var allCoords = points.map(function (p, i) {
       return { label: p.label, value: p.value, x: padLeft + i * step, y: padTop + innerH - (niceMax ? (p.value / niceMax) * innerH : 0) };
     });
+    var coords = allCoords.filter(function (c) { return c.value > 0; });
     var line = coords.map(function (c) { return c.x + ',' + c.y; }).join(' ');
-    var area = padLeft + ',' + (padTop + innerH) + ' ' + line + ' ' + (padLeft + innerW) + ',' + (padTop + innerH);
+    var area = coords.length ? (coords[0].x + ',' + (padTop + innerH) + ' ' + line + ' ' + coords[coords.length - 1].x + ',' + (padTop + innerH)) : '';
     var axis = ticks.map(function (tick) {
       var y = padTop + innerH - (tick / niceMax) * innerH;
+      var label = axisFormatter ? axisFormatter(tick) : comma(tick);
       return '<line x1="' + padLeft + '" y1="' + y + '" x2="' + (padLeft + innerW) + '" y2="' + y + '" class="weekly-axis-grid"></line>' +
-        '<text x="' + (padLeft - 8) + '" y="' + y + '" text-anchor="end" dominant-baseline="middle" class="weekly-axis-label">' + comma(tick) + '</text>';
+        '<text x="' + (padLeft - 8) + '" y="' + y + '" text-anchor="end" dominant-baseline="middle" class="weekly-axis-label">' + label + '</text>';
+    }).join('');
+    var xLabels = allCoords.map(function (c) {
+      return '<text class="weekly-line-label" x="' + c.x + '" y="' + (height - 8) + '" text-anchor="middle">' + esc(c.label) + '</text>';
     }).join('');
     return '<div class="weekly-line-chart"><svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" role="img">' +
       axis +
-      '<polygon class="weekly-line-area" points="' + area + '"></polygon>' +
-      '<polyline class="weekly-line" points="' + line + '"></polyline>' +
+      (area ? '<polygon class="weekly-line-area" points="' + area + '"></polygon>' : '') +
+      (line ? '<polyline class="weekly-line" points="' + line + '"></polyline>' : '') +
       coords.map(function (c) {
+        var label = labelFormatter ? labelFormatter(c.value) : (comma(c.value) + unit);
         return '<g><circle cx="' + c.x + '" cy="' + c.y + '" r="4.5"></circle>' +
-          '<text x="' + c.x + '" y="' + (c.y - 10) + '" text-anchor="middle">' + comma(c.value) + unit + '</text>' +
-          '<text class="weekly-line-label" x="' + c.x + '" y="' + (height - 8) + '" text-anchor="middle">' + esc(c.label) + '</text></g>';
+          '<text x="' + c.x + '" y="' + (c.y - 10) + '" text-anchor="middle">' + label + '</text></g>';
       }).join('') +
+      xLabels +
       '</svg></div>';
   }
   function sourceGroupLabel(source) {
@@ -351,7 +368,7 @@
       cur.value += 1;
       map.set(label, cur);
     });
-    return order.map(function (label) { return map.get(label) || { label: label, value: 0 }; }).filter(function (item) { return item.value > 0; });
+    return order.map(function (label) { return map.get(label) || { label: label, value: 0 }; }).filter(function (item) { return item.value > 0; }).sort(function (a, b) { return b.value - a.value; });
   }
   var DAILY_PIE_COLOR_MAP = { "1라인": "#1f73e8", "4라인": "#e53935", "7라인": "#23a455", "외주": "#f59f00", "구매": "#7950f2", "기타": "#495057" };
   var DAILY_PIE_FALLBACK_COLORS = ["#1f73e8", "#23a455", "#f59f00", "#7950f2", "#495057"];
@@ -396,20 +413,19 @@
     var days = (s && s.week && s.week.days) || [];
     var breakdown = dayBreakdown(days, rows);
     var periodPrefix = dailySelectedDay ? (function () { var p = dailySelectedDay.split("-"); return (+p[1]) + "\uC6D4" + (+p[2]) + "\uC77C"; })() : ((s && s.month) + "\uC6D4" + (s && s.weekNo) + "\uC8FC");
-    var scopeLabel = dailySelectedDay ? (periodPrefix + " \uAE30\uC900") : "\uC120\uD0DD \uC8FC\uCC28 \uC790\uB8CC \uAE30\uC900";
     var html =
       '<div class="weekly-tool">' +
         '<div class="weekly-kpi-grid">' +
-          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC811\uC218\uAC74\uC218</span><strong>' + comma(total) + '</strong><em>\uAC74</em><small>' + esc(scopeLabel) + '</small></div>' +
-          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC190\uC2E4\uAE08\uC561</span><strong>' + comma(loss) + '</strong><em>\uC6D0</em><small>R\uC5F4 \uD569\uACC4 \uAE08\uC561 \uAE30\uC900</small></div>' +
+          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC811\uC218\uAC74\uC218</span><strong>' + comma(total) + '</strong><em>\uAC74</em></div>' +
+          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC190\uC2E4\uAE08\uC561 <span class="weekly-kpi-note">(\uC81C\uD488\uAC00+\uAC74\uB2F960,000)</span></span><strong>' + comma(loss) + '</strong><em>\uC6D0</em></div>' +
           '<div class="weekly-kpi" data-role="daily-top-items" style="cursor:pointer"><span>' + esc(periodPrefix) + ' \uC8FC\uC694 \uC811\uC218 \uD488\uBAA9</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '\uAC74</em>' +
             '<div class="weekly-kpi-tags">' + top.map(function (t) { return '<button type="button" tabindex="-1">' + esc(t.key) + ' <b>' + comma(t.qty) + '\uAC74</b></button>'; }).join("") + '</div>' +
           '</div>' +
         '</div>' +
         '<div class="weekly-visual-grid">' +
           '<div class="weekly-visual-card"><h3>\uC77C\uBCC4 \uC811\uC218\uAC74\uC218</h3>' + dailyBarChartMarkup(breakdown.map(function (b) { return { label: b.label, value: b.count, day: b.day }; }), '\uAC74') + '</div>' +
-          '<div class="weekly-visual-card"><h3>\uC77C\uBCC4 \uC190\uC2E4\uAE08\uC561</h3>' + dailyLineChartMarkup(breakdown.map(function (b) { return { label: b.label, value: b.amount }; }), '\uC6D0') + '</div>' +
-          '<div class="weekly-visual-card"><h3>\uC6D0\uC778\uCC98\uBCC4 \uC811\uC218\uD604\uD669</h3>' + dailyPieMarkup(sourcePieItems(rows)) + '</div>' +
+          '<div class="weekly-visual-card"><h3>\uC77C\uBCC4 \uC190\uC2E4\uAE08\uC561</h3>' + dailyLineChartMarkup(breakdown.map(function (b) { return { label: b.label, value: b.amount }; }), '\uC6D0', dailyAmountShort, dailyAmountAxisFormatter) + '</div>' +
+          '<div class="weekly-visual-card"><h3>\uC6D0\uC778\uCC98\uBCC4 \uC811\uC218\uD604\uD669</h3>' + dailyPieMarkup(sourcePieItems(cardsRows)) + '</div>' +
         '</div>' +
       '</div>';
     if (html !== lastCardsHtml || el.innerHTML !== html) {
