@@ -199,6 +199,160 @@ const SEED_SAVED_LINK_GROUPS = [
     ]
   }
 ];
+// 링크로 첨부한 사진/영상이 다른 컴퓨터에서도 보이게 하는 기본값.
+// "링크 내보내기"로 최신 값을 복사해서 이 배열에 붙여넣고 다시 배포하세요.
+const SEED_ATTACHED_IMAGES = [
+  {
+    "id": "133720ca-cbc4-453e-b69b-0fdaac1bb405",
+    "name": "ATTACH_I2026071001561DSDGBT1407_1783943386014_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1yGX1B34LwzWO8hm40NvZe2kJ9uBXWemt=s1600"
+  },
+  {
+    "id": "c2dc32ac-09d2-4dd4-bfc7-baaa76d8bda3",
+    "name": "ATTACH_F2026071000671CCR2014DC_1783943406231_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1P3jxxlp_bx8uI1ok0C_7GIX_6HudIueB=s1600"
+  },
+  {
+    "id": "f64ea5b1-5e60-4be1-8fb7-fa1a287fd3e8",
+    "name": "ATTACH_I2026071100441DSAD0012_1783943421275_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1hKASFZJFRxjotrl4HNdJuwV-Y5mt0YIL=s1600"
+  },
+  {
+    "id": "3f59f083-30e7-46b8-9ba1-f88b37608612",
+    "name": "ATTACH_I2026071300971DSAD0212_1783943438723_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1byCoCZb367xyF8tq35vUmUBzx0QPEo6C=s1600"
+  },
+  {
+    "id": "ad56192d-bf51-4684-a85e-540e550bc490",
+    "name": "ATTACH_I2026071002211DSAD0214_1783943451795_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1mIpMns8fAjuZEshAfLa8a6X2CmbSjRGA=s1600"
+  },
+  {
+    "id": "76a46183-502b-40d3-b8e6-d0e8762a8b98",
+    "name": "ATTACH_I2026071300891DSAD0214_1783943464917_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1zR6NZ9zGT4MO0mGOa3bulxg-pG4ugF0B=s1600"
+  },
+  {
+    "id": "b0bf955a-71c3-4b1c-a034-d8eb0a843c38",
+    "name": "ATTACH_I2026071100531DSAD0608_1783943476405_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1lfEmy0xc8ySF8w0uR3DY-f4_-Cyz8SXy=s1600"
+  },
+  {
+    "id": "41cb7c70-7914-4f9c-953f-6f4a4de64a09",
+    "name": "ATTACH_I2026071200581DSAD0612P_1783943488405_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1ZvMgQ8ZiEUyjSDUQCvu7s24G0PlT9wrL=s1600"
+  },
+  {
+    "id": "99a56f1c-2440-498e-92ee-df1d20aaeb71",
+    "name": "ATTACH_I2026071300301DSBC0163BS_1783943502358_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/18fGosECr8urCGWmKN2tpDzdXgaNbFAqJ=s1600"
+  },
+  {
+    "id": "aa499d68-2b35-4d46-97ec-5680d13b15f8",
+    "name": "ATTACH_F2026071100021FDP0303A_1783943515065_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1vL3Ua82hD7OZKDfmR1zzZuxufFWWtzb4=s1600"
+  },
+  {
+    "id": "079a92b2-ff53-4995-bcc8-9f103dc716fb",
+    "name": "ATTACH_I2026071302431HSFC5080D_1783943531212_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1FDHBQaIkbR0Wc2jpv7EZ4T65ZUreVAPO=s1600"
+  },
+  {
+    "id": "1a3a5cab-41aa-42bf-9eaa-4369fd439895",
+    "name": "ATTACH_I2026071001791HSFP0093H_1783943543487_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1JyN12pWEN8sZfc-UH-U2b03FU5U3AZLf=s1600"
+  },
+  {
+    "id": "0b5440f8-207d-43a2-90c8-b94b6db2a2d0",
+    "name": "ATTACH_I2026071100031ICD40CP01A_1783943561173_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1Ykvo2KbmZgvml4MTldLB26a0aLkV_8Zu=s1600"
+  },
+  {
+    "id": "f0748ea0-441f-49c6-ac6d-dd6bada87653",
+    "name": "ATTACH_I2026071301351IHD14CP01A_1783943571957_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1eyPc0yDmEr8zcKBdKGDn2AI1cBp1Kc9L=s1600"
+  },
+  {
+    "id": "11a2dbf0-d89a-4b15-b66e-4ede7b340e50",
+    "name": "ATTACH_I2026071001761DSPAAY0403A_1783943586054_0",
+    "mediaType": "image",
+    "mimeType": "",
+    "imageNo": 0,
+    "imageDate": "",
+    "driveSourced": true,
+    "dataUrl": "https://lh3.googleusercontent.com/d/1a1JPs3apUZD7YA9iS_E_f7jEy0lRAYQx=s1600"
+  }
+];
 const monthlyStatusSnapshotKey = "qualityClaimDashboard.monthlyStatusSnapshot.v1";
 const imageDbName = "qualityClaimDashboard.images.v1";
 const imageStoreName = "images";
@@ -294,6 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("showSelected")?.addEventListener("click", () => renderAll("선택한 자료만 합산 표시 중"));
   document.getElementById("toggleFileCards")?.addEventListener("click", toggleFileCards);
   document.getElementById("exportSavedLinkGroups")?.addEventListener("click", exportSeedSavedLinkGroups);
+  document.getElementById("exportAttachedImages")?.addEventListener("click", exportSeedAttachedImages);
   document.getElementById("clearSelection")?.addEventListener("click", clearSelection);
   document.getElementById("deleteSelected")?.addEventListener("click", deleteSelectedUploads);
   document.getElementById("downloadDb")?.addEventListener("click", downloadLocalDb);
@@ -5916,7 +6071,8 @@ async function restoreSavedDashboardState() {
     });
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
-    const linkImages = (payload.images || []).filter((image) => image.driveSourced);
+    const storedLinkImages = (payload.images || []).filter((image) => image.driveSourced);
+    const linkImages = storedLinkImages.length ? storedLinkImages : SEED_ATTACHED_IMAGES;
     const localImages = dbImages.length ? dbImages : (payload.images || []).filter((image) => !image.driveSourced);
     restoreSavedImages(localImages.concat(linkImages));
     activeUploadId = state.uploads.find((entry) => entry.label === payload.activeUploadLabel)?.id || state.uploads[0]?.id || "sample";
@@ -5948,6 +6104,28 @@ function exportSeedSavedLinkGroups() {
   }
   const text = `const SEED_SAVED_LINK_GROUPS = ${JSON.stringify(groups, null, 2)};`;
   const done = () => alert("복사되었습니다. app.js의 SEED_SAVED_LINK_GROUPS 부분에 붙여넣고 저장/배포하세요.");
+  const fail = () => window.prompt("자동 복사에 실패했습니다. 아래 내용을 직접 복사하세요:", text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else {
+    fail();
+  }
+}
+
+function exportSeedAttachedImages() {
+  const raw = localStorage.getItem(dashboardStorageKey);
+  let images = [];
+  try {
+    images = ((JSON.parse(raw || "null")?.images) || []).filter((image) => image.driveSourced);
+  } catch (_) {
+    images = [];
+  }
+  if (!images.length) {
+    alert("내보낼 사진 링크가 없습니다. 먼저 사진 링크추가로 넣어주세요.");
+    return;
+  }
+  const text = `const SEED_ATTACHED_IMAGES = ${JSON.stringify(images, null, 2)};`;
+  const done = () => alert("복사되었습니다. app.js의 SEED_ATTACHED_IMAGES 부분에 붙여넣고 저장/배포하세요.");
   const fail = () => window.prompt("자동 복사에 실패했습니다. 아래 내용을 직접 복사하세요:", text);
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(fail);
@@ -14125,9 +14303,11 @@ function buildClaimSummaryMeta(latestDate) {
     var insertBtn = document.getElementById("openDataInsert");
     var deleteBtn = document.getElementById("toggleFileCards");
     var exportBtn = document.getElementById("exportSavedLinkGroups");
+    var exportImagesBtn = document.getElementById("exportAttachedImages");
     if (insertBtn) insertBtn.hidden = !canEdit;
     if (deleteBtn) deleteBtn.hidden = !canEdit;
     if (exportBtn) exportBtn.hidden = !canEdit;
+    if (exportImagesBtn) exportImagesBtn.hidden = !canEdit;
   }
   function checkCanEdit() {
     var token = getAdminToken();
@@ -14136,7 +14316,9 @@ function buildClaimSummaryMeta(latestDate) {
       .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
       .catch(function () {
         var exportBtn = document.getElementById("exportSavedLinkGroups");
+        var exportImagesBtn = document.getElementById("exportAttachedImages");
         if (exportBtn) exportBtn.hidden = true;
+        if (exportImagesBtn) exportImagesBtn.hidden = true;
       });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);
