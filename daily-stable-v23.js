@@ -45,6 +45,12 @@
     return isFinite(n) ? n : 0;
   }
   function comma(n) { return Math.round(Number(n) || 0).toLocaleString("ko-KR"); }
+  function attachEscToClose(win) {
+    if (!win) return;
+    try {
+      win.document.addEventListener("keydown", function (e) { if (e.key === "Escape") win.close(); });
+    } catch (_) {}
+  }
   function pad(n) { return String(n).padStart(2, "0"); }
   function iso(y, m, d) { return y + "-" + pad(m) + "-" + pad(d); }
   function dateKey(d) { return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
@@ -479,6 +485,7 @@
       (bodyRows || '<tr><td colspan="8">\uD45C\uC2DC\uD560 \uC790\uB8CC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</td></tr>') +
       '</tbody></table></body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   }
   document.addEventListener("click", function (event) {
     var target = event.target && event.target.closest ? event.target.closest('[data-role="daily-top-items"]') : null;
@@ -760,6 +767,7 @@
         '<div class="kpi"><span>손실금액</span><strong>' + comma(loss) + '</strong><em>원</em><small>R열 합계 금액 기준</small></div>' +
         '<div class="kpi"><span>주요 접수 품목</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '건</em><div class="kpi-tags">' + tagsHtml + '</div></div>' +
       '</div></div>' +
+      '<script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});<\/script>' +
       '</body></html>');
     popup.document.close();
   }
@@ -947,6 +955,7 @@
     popup.document.open();
     popup.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>고객클레임 일일접수 내역</title><style>body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>고객클레임 일일접수 내역</h1><div class="meta">' + esc(data.s.year + "년 " + data.s.month + "월 " + data.s.weekNo + "주" + (data.detailDate ? " / " + data.detailDate : "")) + ' · 표시 ' + comma(rows.length) + '건</div><div class="toolbar"><button onclick="window.opener&&window.opener.__dailyStableExportDay()">일일데이터 엑셀 다운로드</button><button onclick="window.opener&&window.opener.__dailyStableExportWeek()">주간데이터 엑셀 다운로드</button></div><table><thead><tr><th>No</th><th>일자</th><th>구분</th><th>유형</th><th>브랜드</th><th>원인처</th><th>제품코드</th><th>색상</th><th>LOT NO</th><th>공급</th><th>하자내역</th><th>금액</th></tr></thead><tbody>' + (bodyRows || '<tr><td colspan="12">표시할 자료가 없습니다.</td></tr>') + '</tbody></table></body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   }
   document.addEventListener("dblclick", function (event) {
     var table = document.getElementById("detailTable");

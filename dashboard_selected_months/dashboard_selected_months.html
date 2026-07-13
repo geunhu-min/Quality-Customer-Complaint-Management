@@ -326,6 +326,10 @@ const num=v=>Number(String(v??"0").replaceAll(",","").replaceAll("원","").trim(
 const SVG_CHART_COLORS=["#1f73e8","#e56a00","#23a455","#e55353","#7950f2","#495057","#17becf","#9467bd"];
 function svgEsc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function jsStr(v){return String(v??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'");}
+function attachEscToClose(win){
+  if(!win)return;
+  try{ win.document.addEventListener("keydown",function(e){if(e.key==="Escape")win.close();}); }catch(_){}
+}
 function svgNiceTicks(maxValue,tickCount=5){
   const safeMax=Math.max(Number(maxValue)||0,1)*1.15;
   const rawStep=safeMax/tickCount;
@@ -1163,6 +1167,7 @@ function openHistoryPopup(title, metaHtml, rows, fallbackCols, downloadFileName)
     <table><thead><tr>${data.headers.map(h=>`<th>${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${bodyRows}</tbody></table>
   </body></html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function openChartPopup(windowKey, title, chartHtml){
@@ -1188,6 +1193,7 @@ function openChartPopup(windowKey, title, chartHtml){
     .wsvg-pie-legend-item em{color:#4b5563;font-style:normal}
   </style></head><body>${chartHtml}</body></html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function openOutsourceVendorChart(){
@@ -1319,6 +1325,7 @@ function openBrandProductSummary(brand){
     <table><thead><tr><th>순번</th><th>제품코드</th><th>색상</th><th>건수합계</th><th>금액합계</th></tr></thead><tbody>${bodyRows}</tbody></table>
   </body></html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function openLinePackageProductSummary(group){
@@ -1374,6 +1381,7 @@ function openLinePackageProductSummary(group){
     <table><thead><tr><th>순번</th><th>제품코드</th><th>색상</th><th>건수합계</th><th>금액합계</th></tr></thead><tbody>${bodyRows}</tbody></table>
   </body></html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function openDominantProductSummary(){
@@ -1436,6 +1444,7 @@ function openDominantProductSummary(){
     <table><thead><tr><th>순번</th><th>제품코드</th><th>색상</th><th>건수합계</th><th>금액합계</th></tr></thead><tbody>${bodyRows}</tbody></table>
   </body></html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function downloadBrandSummaryExcel(){

@@ -3140,6 +3140,7 @@ function openMonthlyItemsPopup(itemKeys, titlePrefix, downloadLabel = "") {
       </body>
     </html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function monthlyItemPopupRows(itemKeyOrKeys) {
@@ -3996,6 +3997,7 @@ function openTypePiePopup(title, items) {
       </body>
     </html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function queueMonthlyStatusReload() {
@@ -4402,6 +4404,7 @@ function openWeeklyWeekTypePopup(week) {
       </body>
     </html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function weeklyTypePieItems(week) {
@@ -4574,6 +4577,7 @@ function openWeeklyItemsPopup(itemKeys, titlePrefix, downloadLabel = "") {
       </body>
     </html>`);
   popup.document.close();
+  attachEscToClose(popup);
 }
 
 function weeklyItemPopupRows(itemKeyOrKeys) {
@@ -5580,6 +5584,7 @@ function openDetailImage(index) {
     : `<img src="${image.url}" alt="" style="max-width:100%;max-height:100vh;object-fit:contain" />`;
   viewer.document.write(`<!doctype html><html lang="ko"><head><title>${escapeHtml(image.name || "미디어")}</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}</style></head><body>${media}</body></html>`);
   viewer.document.close();
+  attachEscToClose(viewer);
 }
 
 function deleteDetailImage(index) {
@@ -6140,6 +6145,13 @@ function escapeHtml(value) {
 
 function escapeJs(value) {
   return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function attachEscToClose(win) {
+  if (!win) return;
+  try {
+    win.document.addEventListener("keydown", (e) => { if (e.key === "Escape") win.close(); });
+  } catch (_) {}
 }
 
 // Final classification guards: keep line causes from being pulled into purchase/outsource buckets.
@@ -6959,6 +6971,7 @@ function buildClaimSummaryMeta(latestDate) {
       '<div class="pie-groups">' + typeGroup + sourceGroup + '</div>' +
       '</body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   };
 
   weeklyTypePieItems = function (week) {
@@ -7090,6 +7103,7 @@ function buildClaimSummaryMeta(latestDate) {
       body +
       '</body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   };
 
   function bigTypePieLegendMarkup(items) {
@@ -7370,6 +7384,7 @@ function buildClaimSummaryMeta(latestDate) {
       }).join("") : '<tr><td colspan="7">' + L.noData + '</td></tr>') +
       '</tbody></table></div></body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   };
 
   window.downloadClaimDetailExcel = function (payload) {
@@ -11881,6 +11896,7 @@ function buildClaimSummaryMeta(latestDate) {
     popup.document.open();
     popup.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>\uACE0\uAC1D\uD074\uB808\uC784 \uC811\uC218 \uC138\uBD80\uB0B4\uC5ED</title><style>body{font-family:Malgun Gothic,Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>\uACE0\uAC1D\uD074\uB808\uC784 \uC811\uC218 \uC138\uBD80\uB0B4\uC5ED</h1><div class="meta">' + h(data.sel.year + '\uB144 ' + data.sel.month + '\uC6D4' + (selectedDate ? ' / ' + selectedDate : '')) + ' · \uD45C\uC2DC ' + fmt(rows.length) + '\uAC74</div><div class="toolbar"><button onclick="window.opener&&window.opener.downloadDailyDetailMonthExcelV16()">\uC6D4\uB370\uC774\uD130 \uC5D1\uC140 \uB2E4\uC6B4\uB85C\uB4DC</button><button onclick="window.opener&&window.opener.downloadDailyDetailDayExcelV16()">\uC77C\uC77C\uB370\uC774\uD130 \uC5D1\uC140 \uB2E4\uC6B4\uB85C\uB4DC</button></div><table><thead><tr><th>No</th><th>\uC77C\uC790</th><th>\uAD6C\uBD84</th><th>\uC720\uD615</th><th>\uBE0C\uB79C\uB4DC</th><th>\uC6D0\uC778\uCC98</th><th>\uC81C\uD488\uCF54\uB4DC</th><th>\uC0C9\uC0C1</th><th>LOT NO</th><th>\uACF5\uAE09</th><th>\uD558\uC790\uB0B4\uC5ED</th><th>\uAE08\uC561</th></tr></thead><tbody>' + (bodyRows || '<tr><td colspan="12">\uD45C\uC2DC\uD560 \uC790\uB8CC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</td></tr>') + '</tbody></table></body></html>');
     popup.document.close();
+    attachEscToClose(popup);
   }
   function bindTable() {
     var table = el("detailTable");
@@ -12161,6 +12177,7 @@ function buildClaimSummaryMeta(latestDate) {
     popup.document.open();
     popup.document.write("<!doctype html><html><head><meta charset='UTF-8'><title>고객클레임 접수 세부내역</title><style>body{font-family:Malgun Gothic,Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>고객클레임 접수 세부내역</h1><div class='meta'>" + escape(data.sel.year + "년 " + data.sel.month + "월" + (selectedDate ? " / " + selectedDate : "")) + " · 선택 날짜 " + formatNumber(rows.length) + "건</div><div class='toolbar'><button onclick='window.opener&&window.opener.downloadDailyDetailMonthExcelV17()'>월데이터 엑셀 다운로드</button><button onclick='window.opener&&window.opener.downloadDailyDetailDayExcelV17()'>일일데이터 엑셀 다운로드</button></div><table><thead><tr><th>No</th><th>일자</th><th>구분</th><th>유형</th><th>브랜드</th><th>원인처</th><th>제품코드</th><th>색상</th><th>LOT NO</th><th>공급</th><th>하자내역</th><th>금액</th></tr></thead><tbody>" + (body || "<tr><td colspan='12'>선택 날짜 자료가 없습니다.</td></tr>") + "</tbody></table></body></html>");
     popup.document.close();
+    attachEscToClose(popup);
   }
 
   document.addEventListener("change", function (event) {
@@ -12458,6 +12475,7 @@ function buildClaimSummaryMeta(latestDate) {
     popup.document.open();
     popup.document.write("<!doctype html><html><head><meta charset='UTF-8'><title>Detail</title><style>body{font-family:Malgun Gothic,Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>\uACE0\uAC1D\uD074\uB808\uC784 \uC811\uC218 \uC138\uBD80\uB0B4\uC5ED</h1><div class='meta'>" + esc(selectedDate) + " / " + fmt(data.dayRows.length) + "\uAC74</div><div class='toolbar'><button onclick='window.opener&&window.opener.downloadDailyDetailMonthExcelV18()'>\uC6D4\uB370\uC774\uD130 \uC5D1\uC140 \uB2E4\uC6B4\uB85C\uB4DC</button><button onclick='window.opener&&window.opener.downloadDailyDetailDayExcelV18()'>\uC77C\uC77C\uB370\uC774\uD130 \uC5D1\uC140 \uB2E4\uC6B4\uB85C\uB4DC</button></div><table><thead><tr><th>No</th><th>\uC77C\uC790</th><th>\uAD6C\uBD84</th><th>\uC720\uD615</th><th>\uBE0C\uB79C\uB4DC</th><th>\uC6D0\uC778\uCC98</th><th>\uC81C\uD488\uCF54\uB4DC</th><th>\uC0C9\uC0C1</th><th>LOT NO</th><th>\uACF5\uAE09</th><th>\uD558\uC790\uB0B4\uC5ED</th><th>\uAE08\uC561</th></tr></thead><tbody>" + (body || "<tr><td colspan='12'>\uC120\uD0DD \uB0A0\uC9DC \uC790\uB8CC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</td></tr>") + "</tbody></table></body></html>");
     popup.document.close();
+    attachEscToClose(popup);
   }
 
   document.addEventListener("change", function (event) {
