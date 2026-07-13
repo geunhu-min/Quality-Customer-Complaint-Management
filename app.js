@@ -2735,7 +2735,7 @@ function renderMonthDefect() {
   const totalCount = selectedMonthStat ? selectedMonthStat.count : months.reduce((sum, item) => sum + item.count, 0);
   const totalAmount = selectedMonthStat ? selectedMonthStat.amount : months.reduce((sum, item) => sum + item.amount, 0);
   const scopedRows = monthlyDefectScopedRows(rows);
-  const topItems = monthlyTopClaimItems(scopedRows, 10, { hideMaterial: true });
+  const topItems = monthlyTopClaimItems(scopedRows, 5, { hideMaterial: true });
   const periodPrefix = monthlyDefectSelectedMonth || currentYearLabel();
   holder.innerHTML = `
     <div class="weekly-tool">
@@ -3058,7 +3058,7 @@ function monthlyTopClaimItems(rows, limit = 10, options = {}) {
   });
   return [...map.values()]
     .map((item) => ({ ...item, count: item.rows.length, amount: item.amountBase + monthlyPenaltyCount(item.rows) * penaltyPerClaim }))
-    .sort((a, b) => (b.quantity || b.count || 0) - (a.quantity || a.count || 0) || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
+    .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
 
@@ -4220,7 +4220,7 @@ function weeklyTopClaimItems(rows, limit = 5) {
   });
   return [...map.values()]
     .map((item) => ({ ...item, count: item.receipts.size, amount: item.amount + item.receipts.size * penaltyPerClaim }))
-    .sort((a, b) => (b.quantity || b.count || 0) - (a.quantity || a.count || 0) || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
+    .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
 
@@ -7441,7 +7441,7 @@ function buildClaimSummaryMeta(latestDate) {
     scope = scope || "weekly";
     return '<div class="weekly-item-list">' + items.map(function (item, index) {
       var opts = { line: lineLabel || "", type: typeLabel || "", itemKey: item.key };
-      return '<div class="weekly-item-row" ondblclick="openClaimDetailExportPopup(\'' + scope + '\',' + optionsJson(opts) + ')"><span>' + (index + 1) + '</span><strong title="double click">' + escapeHtml(item.displayLabel || item.label) + '</strong><em>' + formatNumber(item.quantity || item.count || 0) + '\uAC74</em><b>' + money(item.amount) + '</b></div>';
+      return '<div class="weekly-item-row" ondblclick="openClaimDetailExportPopup(\'' + scope + '\',' + optionsJson(opts) + ')"><span>' + (index + 1) + '</span><strong title="double click">' + escapeHtml(item.displayLabel || item.label) + '</strong><em>' + formatNumber(item.count || 0) + '\uAC74</em><b>' + money(item.amount) + '</b></div>';
     }).join("") + '</div>';
   };
 
@@ -7491,7 +7491,7 @@ function buildClaimSummaryMeta(latestDate) {
       var encoded = encodeDetailOptions(opts);
       return '<div class="weekly-item-row"><span>' + (index + 1) + '</span>' +
         '<strong class="weekly-item-code" ondblclick="openClaimDetailExportPopupEncoded(\'' + scope + '\',\'' + encoded + '\')" title="double click">' + escapeHtml(item.displayLabel || item.label) + '</strong>' +
-        '<em>' + formatNumber(item.quantity || item.count || 0) + '\uAC74</em><b>' + (formatNumber(Math.round(Number(item.amount || 0))) + '\uC6D0') + '</b></div>';
+        '<em>' + formatNumber(item.count || 0) + '\uAC74</em><b>' + (formatNumber(Math.round(Number(item.amount || 0))) + '\uC6D0') + '</b></div>';
     }).join("") + '</div>';
   };
 
@@ -7746,7 +7746,7 @@ function buildClaimSummaryMeta(latestDate) {
       var encoded = encodeDetailOptionsV3(opts);
       return '<div class="weekly-item-row"><span>' + (index + 1) + '</span>' +
         '<strong class="weekly-item-code" ondblclick="openClaimDetailExportPopupEncoded(\'' + scope + '\',\'' + encoded + '\')" title="double click">' + escapeHtml(item.displayLabel || item.label) + '</strong>' +
-        '<em>' + formatNumber(item.quantity || item.count || 0) + '\uAC74</em><b>' + (formatNumber(Math.round(Number(item.amount || 0))) + '\uC6D0') + '</b></div>';
+        '<em>' + formatNumber(item.count || 0) + '\uAC74</em><b>' + (formatNumber(Math.round(Number(item.amount || 0))) + '\uC6D0') + '</b></div>';
     }).join("") + '</div>';
   };
 
