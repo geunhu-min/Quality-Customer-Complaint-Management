@@ -4297,13 +4297,17 @@ function weeklyBarChartMarkup(weeks) {
   }).join("");
   const bars = weeks.map((week, index) => {
     const value = Number(week.count || 0);
-    const barH = niceMax ? (value / niceMax) * innerH : 0;
     const x = padLeft + index * slot + (slot - barWidth) / 2;
-    const y = padTop + innerH - barH;
     const active = week.week === weeklySelectedWeek;
+    let bar = "";
+    if (value > 0) {
+      const barH = niceMax ? (value / niceMax) * innerH : 0;
+      const y = padTop + innerH - barH;
+      bar = `<rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>` +
+        `<text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>`;
+    }
     return `<g class="weekly-svg-bar-group" onclick="selectWeeklyWeek('${escapeJs(week.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'weekly','${escapeJs(week.week)}',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
-      <rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>
-      <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>
+      ${bar}
       <text x="${x + barWidth / 2}" y="${height - 8}" text-anchor="middle" class="weekly-axis-label">${escapeHtml(week.week)}</text>
     </g>`;
   }).join("");
@@ -4325,32 +4329,34 @@ function weeklyMetricLineChartMarkup(weeks, field, labelFormatter, ariaLabel, ax
   const innerH = height - padTop - padBottom;
   const { ticks, niceMax } = niceAxisTicks(Math.max(1, ...weeks.map((week) => Number(week[field] || 0))));
   const step = weeks.length > 1 ? innerW / (weeks.length - 1) : 0;
-  const points = weeks.map((week, index) => {
+  const allPoints = weeks.map((week, index) => {
     const x = padLeft + index * step;
     const value = Number(week[field] || 0);
     const y = padTop + innerH - (niceMax ? (value / niceMax) * innerH : 0);
     return { ...week, value, x, y };
   });
+  const points = allPoints.filter((point) => point.value > 0);
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = `${padLeft},${padTop + innerH} ${line} ${padLeft + innerW},${padTop + innerH}`;
+  const area = points.length ? `${points[0].x},${padTop + innerH} ${line} ${points[points.length - 1].x},${padTop + innerH}` : "";
   const axis = ticks.map((tick) => {
     const y = padTop + innerH - (tick / niceMax) * innerH;
     const label = axisFormatter ? axisFormatter(tick) : formatNumber(tick);
     return `<line x1="${padLeft}" y1="${y}" x2="${padLeft + innerW}" y2="${y}" class="weekly-axis-grid"></line>` +
       `<text x="${padLeft - 8}" y="${y}" text-anchor="end" dominant-baseline="middle" class="weekly-axis-label">${label}</text>`;
   }).join("");
+  const xLabels = allPoints.map((point) => `<text class="weekly-line-label" x="${point.x}" y="${height - 8}" text-anchor="middle" onclick="selectWeeklyWeek('${escapeJs(point.week)}')">${escapeHtml(point.week)}</text>`).join("");
   return `<div class="weekly-line-chart">
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(ariaLabel)}">
       ${axis}
-      <polygon class="weekly-line-area" points="${area}"></polygon>
-      <polyline class="weekly-line" points="${line}"></polyline>
+      ${area ? `<polygon class="weekly-line-area" points="${area}"></polygon>` : ""}
+      ${line ? `<polyline class="weekly-line" points="${line}"></polyline>` : ""}
       ${points.map((point) => `
         <g>
           <circle class="${point.week === weeklySelectedWeek ? "active" : ""}" cx="${point.x}" cy="${point.y}" r="4.5" onclick="selectWeeklyWeek('${escapeJs(point.week)}')"></circle>
           <text x="${point.x}" y="${point.y - 10}" text-anchor="middle">${labelFormatter(point.value)}</text>
-          <text class="weekly-line-label" x="${point.x}" y="${height - 8}" text-anchor="middle" onclick="selectWeeklyWeek('${escapeJs(point.week)}')">${escapeHtml(point.week)}</text>
         </g>
       `).join("")}
+      ${xLabels}
     </svg>
   </div>`;
 }

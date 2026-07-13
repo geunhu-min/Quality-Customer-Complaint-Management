@@ -453,14 +453,21 @@ function svgLineChartMarkup(categories,series,opts={}){
   }).join("");
   const xLabels=categories.map((c,i)=>`<text x="${padLeft+i*step}" y="${height-padBottom+20}" text-anchor="middle" class="wsvg-axis-label">${svgEsc(c)}</text>`).join("");
   const showValues=opts.showValues!==false;
-  const seriesMarkup=series.map((s,si)=>{
-    const color=s.color||SVG_CHART_COLORS[si%SVG_CHART_COLORS.length];
-    const pts=s.values.map((v,i)=>({x:padLeft+i*step,y:padTop+innerH-(niceMax?(Number(v||0)/niceMax)*innerH:0),v:Number(v||0),cat:categories[i]}));
+  const allPts=series.map((s,si)=>({
+    s,
+    color:s.color||SVG_CHART_COLORS[si%SVG_CHART_COLORS.length],
+    pts:s.values.map((v,i)=>({x:padLeft+i*step,y:padTop+innerH-(niceMax?(Number(v||0)/niceMax)*innerH:0),v:Number(v||0),cat:categories[i]}))
+  }));
+  const seriesMarkup=allPts.map(({s,color,pts},si)=>{
     const line=pts.map(p=>`${p.x},${p.y}`).join(" ");
     const labelText=p=>svgEsc(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString());
     const tipText=p=>svgEsc(opts.tooltipValueFormatter?opts.tooltipValueFormatter(p.v):(opts.valueFormatter?opts.valueFormatter(p.v):p.v.toLocaleString()));
+    const below=si%2===1, tier=Math.floor(si/2);
+    const labelY=below?(p=>p.y+17+tier*13):(p=>p.y-9-tier*13);
     return `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>` +
-      pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues&&p.v?`<text x="${p.x}" y="${p.y-9}" text-anchor="middle" class="wsvg-point-label">${labelText(p)}</text>`:""}`).join("");
+      pts.map((p)=>{
+        return `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" class="wsvg-hover-point" data-tip="${svgEsc(s.name?s.name+" ":"")}${svgEsc(p.cat)}: ${tipText(p)}" data-tip-color="${color}"></circle>${showValues&&p.v?`<text x="${p.x}" y="${labelY(p)}" text-anchor="middle" class="wsvg-point-label">${labelText(p)}</text>`:""}`;
+      }).join("");
   }).join("");
   const svg=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" class="wsvg-svg" role="img">${axis}${seriesMarkup}${xLabels}</svg>`;
   const title=opts.title?`<div class="wsvg-title">${svgEsc(opts.title)}</div>`:"";
@@ -760,7 +767,6 @@ function showSelectedMonths(){
 function setExcludePenalty(month,value){const year=currentAccumYear();const d=dashboard.years[year][month];if(!d)return;let v=Number(value||0);if(v<0)v=0;if(v>d.count)v=d.count;d.excludePenaltyCount=v;d.amount=calcAmount(d.rows||[],v);saveStoredExclusion(year,month,v);active=month;render()}
 
 function countBy(rows,col){const m={};rows.forEach(r=>{const k=r[col]||"미분류";m[k]=(m[k]||0)+1});return Object.entries(m).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count)}
-function detail(rows){const m={};rows.forEach(r=>{const k=(r["유형"]||"미분류")+"||"+(r["세부유형"]||"미분류");m[k]=(m[k]||0)+1});return Object.entries(m).map(([k,count])=>{const [type,detail]=k.split("||");return {type,detail,count}}).sort((a,b)=>b.count-a.count).slice(0,15)}
 
 function latestMonthWithData(yearObj,months){let last=0;months.forEach((m,i)=>{if(((yearObj[m]||{count:0}).count||0)>0)last=i+1});return last}
 function sumCountThroughMonth(yearObj,months,cutoff){let s=0;months.slice(0,cutoff).forEach(m=>{s+=(yearObj[m]||{count:0}).count||0});return s}
@@ -778,11 +784,11 @@ function renderCompare(){
   let table=`<div style="overflow-x:auto"><table><tr><th>구분</th>${months.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
   table+=`<tr style="background:#f3f7ff"><th>25년 건수</th>${months.map(m=>`<td style="text-align:right;color:#2f5bd3;font-weight:bold">${Number((prev[m]||{count:0}).count||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotal.toLocaleString()}</td></tr>`;
   table+=`<tr style="background:#fff6ee"><th>26년 건수</th>${months.map(m=>`<td style="text-align:right;color:#e56a00;font-weight:bold">${Number((cur[m]||{count:0}).count||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotal.toLocaleString()}</td></tr>`;
-  table+=`<tr style="background:#f5fff5"><th>증감 (건)</th>${months.map(m=>{const p=(prev[m]||{count:0}).count||0,c=(cur[m]||{count:0}).count||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${d>=0?"+":""}${d.toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${(curTotal-prevTotal)>=0?"+":""}${(curTotal-prevTotal).toLocaleString()}</td></tr>`;
-  table+=`<tr style="background:#f5fff5"><th>증감률 (%)</th>${months.map(m=>{const p=(prev[m]||{count:0}).count||0,c=(cur[m]||{count:0}).count||0,d=c-p,r=p?Math.round(d/p*100):0,col=r>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${p?(r>=0?"+":"")+r+"%":"-"}</td>`}).join("")}<td style="text-align:right;color:${rateColor};font-weight:bold">${rate>=0?"+":""}${rate}%</td></tr>`;
-  table+=`<tr><th>25년 금액</th>${months.map(m=>`<td style="text-align:right">₩ ${Number((prev[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">₩ ${Number((prev["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
-  table+=`<tr><th>26년 금액</th>${months.map(m=>`<td style="text-align:right">₩ ${Number((cur[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">₩ ${Number((cur["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
-  table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${months.map(m=>{const p=(prev[m]||{amount:0}).amount||0,c=(cur[m]||{amount:0}).amount||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">₩ ${d>=0?"+":""}${Number(d).toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">₩ ${Number(((cur["종합"]||{amount:0}).amount||0)-((prev["종합"]||{amount:0}).amount||0)).toLocaleString()}</td></tr></table></div>`;
+  table+=`<tr style="background:#f5fff5"><th>증감 (건)</th>${months.map(m=>{const p=(prev[m]||{count:0}).count||0,c=(cur[m]||{count:0}).count||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${d.toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${(curTotal-prevTotal).toLocaleString()}</td></tr>`;
+  table+=`<tr style="background:#f5fff5"><th>증감률 (%)</th>${months.map(m=>{const p=(prev[m]||{count:0}).count||0,c=(cur[m]||{count:0}).count||0,d=c-p,r=p?Math.round(d/p*100):0,col=r>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${p?r+"%":"-"}</td>`}).join("")}<td style="text-align:right;color:${rateColor};font-weight:bold">${rate}%</td></tr>`;
+  table+=`<tr><th>25년 금액</th>${months.map(m=>`<td style="text-align:right">${Number((prev[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${Number((prev["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
+  table+=`<tr><th>26년 금액</th>${months.map(m=>`<td style="text-align:right">${Number((cur[m]||{amount:0}).amount||0).toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${Number((cur["종합"]||{amount:0}).amount||0).toLocaleString()}</td></tr>`;
+  table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${months.map(m=>{const p=(prev[m]||{amount:0}).amount||0,c=(cur[m]||{amount:0}).amount||0,d=c-p,col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${Number(d).toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${Number(((cur["종합"]||{amount:0}).amount||0)-((prev["종합"]||{amount:0}).amount||0)).toLocaleString()}</td></tr></table></div>`;
   document.getElementById("comparisonTableWrap").innerHTML=table;
   document.getElementById("compareChart").innerHTML=svgBarChartMarkup(months,[
     {name:"2025년 실적",values:months.map(m=>(prev[m]||{count:0}).count||0),color:"#1f73e8"},
@@ -797,7 +803,7 @@ function renderCompare(){
 function renderCharts(){
   const year=currentAccumYear();
   const rows=(dashboard.years[year][active]||{rows:[]}).rows||[];
-  const type=countBy(rows,"유형"), det=detail(rows);
+  const type=countBy(rows,"유형");
   const packMergedMap={};
   rows.forEach(r=>{
     const raw=String(r["포장"]||"미분류").trim()||"미분류";
@@ -817,9 +823,9 @@ function renderCharts(){
     {size:270,title:`포장별 현황 (${active})`,onDblClick:item=>packageDblClickTarget(item.label),extraAttr:item=>` data-hover-pack="${svgEsc(item.label)}"`}
   );
   document.getElementById("c3").innerHTML=svgBarChartMarkup(
-    det.map(r=>r.detail),
-    [{values:det.map(r=>r.count),barColors:det.map(r=>getColor(r.type)),labels:det.map(r=>r.type)}],
-    {width:1200,height:460,padBottom:34,title:`세부유형 TOP (${active})`}
+    type.map(r=>r.name),
+    [{values:type.map(r=>r.count),barColors:type.map(r=>getColor(r.name))}],
+    {width:1200,height:460,padBottom:34,valueFormatter:v=>v+"건",onBarDblClick:cat=>`openTypeDetailBarChart('${jsStr(cat)}')`,title:`유형별 현황 (${active})`}
   );
   document.getElementById("c4").innerHTML=svgBarChartMarkup(
     product.map(r=>r.name),
@@ -1226,6 +1232,20 @@ function typeDetailPieItems(type){
 function openTypeDetailChart(type){
   const chartHtml=svgPieChartMarkup(typeDetailPieItems(type),{size:320,title:`${type} 세부유형별 현황 (${active})`});
   openChartPopup("TypeDetail",`${type} 세부유형별 현황 (${active})`,chartHtml);
+}
+function typeDetailBarItems(type){
+  const rows=(dashboard.years[currentAccumYear()][active]||{rows:[]}).rows||[];
+  const matched=rows.filter(r=>r["유형"]===type);
+  const detailMap={};
+  matched.forEach(r=>{const k=String(r["세부유형"]||"미분류").trim()||"미분류";detailMap[k]=(detailMap[k]||0)+1});
+  return Object.entries(detailMap).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
+}
+function openTypeDetailBarChart(type){
+  const items=typeDetailBarItems(type);
+  const chartHtml=items.length
+    ? svgBarChartMarkup(items.map(i=>i.name),[{values:items.map(i=>i.count),color:getColor(type)}],{width:1050,height:420,tickAngle:-30,valueFormatter:v=>v+"건",title:`${type} 세부유형별 현황 (${active})`})
+    : `<div style="text-align:center;color:#8b95a1;padding:40px 0">표시할 데이터가 없습니다.</div>`;
+  openChartPopup("TypeDetailBar",`${type} 세부유형별 현황 (${active})`,chartHtml);
 }
 
 function packageDblClickTarget(label){
