@@ -3058,7 +3058,7 @@ function monthlyTopClaimItems(rows, limit = 10, options = {}) {
   });
   return [...map.values()]
     .map((item) => ({ ...item, count: item.rows.length, amount: item.amountBase + monthlyPenaltyCount(item.rows) * penaltyPerClaim }))
-    .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
+    .sort((a, b) => (b.quantity || b.count || 0) - (a.quantity || a.count || 0) || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
 
@@ -4214,7 +4214,7 @@ function weeklyTopClaimItems(rows, limit = 5) {
   });
   return [...map.values()]
     .map((item) => ({ ...item, count: item.receipts.size, amount: item.amount + item.receipts.size * penaltyPerClaim }))
-    .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
+    .sort((a, b) => (b.quantity || b.count || 0) - (a.quantity || a.count || 0) || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
 
@@ -4489,8 +4489,8 @@ function weeklyTypeRowsMarkup(types, lineLabel) {
       const key = `${lineLabel}||${type.label}`;
       return `<div class="weekly-type-block">
         <button class="weekly-type-row" type="button" onclick="toggleWeeklyType('${escapeJs(key)}')">
-          <span>R열 유형</span>
-          <strong>${escapeHtml(type.label)}${weeklyCauseTagsMarkup(type.causes)}</strong>
+          <span>유형</span>
+          <strong>${escapeHtml(type.label)}</strong>
           <em>${formatNumber(type.count)}건</em>
           <b>${formatNumber(type.amount)}원</b>
           <i>${weeklyExpandedType === key ? "▴" : "▾"}</i>
@@ -7403,7 +7403,7 @@ function buildClaimSummaryMeta(latestDate) {
     if (!types.length) return "";
     return '<div class="weekly-drill-list">' + types.map(function (type) {
       var key = lineLabel + '||' + type.label;
-      return '<div class="weekly-type-block"><button class="weekly-type-row" type="button" onclick="toggleWeeklyType(\'' + escapeJs(key) + '\')"><span>R\uC5F4 \uC720\uD615</span><strong>' + escapeHtml(type.label) + weeklyCauseTagsMarkup(type.causes) + '</strong><em>' + formatNumber(type.count) + '\uAC74</em><b>' + money(type.amount) + '</b><i>' + (weeklyExpandedType === key ? '⌃' : '⌄') + '</i></button>' + (weeklyExpandedType === key ? weeklyItemRowsMarkup(type.items, "weekly", lineLabel, type.label) : '') + '</div>';
+      return '<div class="weekly-type-block"><button class="weekly-type-row" type="button" onclick="toggleWeeklyType(\'' + escapeJs(key) + '\')"><span>\uC720\uD615</span><strong>' + escapeHtml(type.label) + '</strong><em>' + formatNumber(type.count) + '\uAC74</em><b>' + money(type.amount) + '</b><i>' + (weeklyExpandedType === key ? '⌃' : '⌄') + '</i></button>' + (weeklyExpandedType === key ? weeklyItemRowsMarkup(type.items, "weekly", lineLabel, type.label) : '') + '</div>';
     }).join("") + '</div>';
   };
 
