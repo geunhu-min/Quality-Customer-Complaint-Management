@@ -25,6 +25,12 @@
   var lastWeeklyReceiptHtml = "";
   var forcedInitialWeeklyReceiptPeriod = false;
   var dailySelectedDay = "";
+  var dailyReadyResolve = null;
+  window.__dailyStableReadyPromise = new Promise(function (resolve) { dailyReadyResolve = resolve; });
+  (function claimDailyCardsEarly() {
+    var el = document.getElementById("dailyReceiptCards");
+    if (el) el.innerHTML = '<div class="weekly-empty-message">누적데이터를 불러오는 중입니다.</div>';
+  })();
 
   function txt(v) { return v == null ? "" : String(v).trim(); }
   function esc(v) {
@@ -255,7 +261,7 @@
       var x = padLeft + index * slot + (slot - barWidth) / 2;
       var y = padTop + innerH - barH;
       var hoverAttrs = p.day
-        ? ' onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,\'daily\',\'' + p.day + '\')" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()" onclick="window.__dailyStableSelectDay&&window.__dailyStableSelectDay(\'' + p.day + '\')"'
+        ? ' onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,\'daily\',\'' + p.day + '\',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()" onclick="window.__dailyStableSelectDay&&window.__dailyStableSelectDay(\'' + p.day + '\')"'
         : '';
       var isActive = p.day && p.day === dailySelectedDay;
       return '<g class="weekly-svg-bar-group"' + hoverAttrs + '>' +
@@ -383,13 +389,14 @@
     var main = top[0] || { key: "-", qty: 0 };
     var days = (s && s.week && s.week.days) || [];
     var breakdown = dayBreakdown(days, rows);
-    var scopeLabel = dailySelectedDay ? (function () { var p = dailySelectedDay.split("-"); return (+p[1]) + "\uC6D4" + (+p[2]) + "\uC77C \uAE30\uC900"; })() : "\uC120\uD0DD \uC8FC\uCC28 \uC790\uB8CC \uAE30\uC900";
+    var periodPrefix = dailySelectedDay ? (function () { var p = dailySelectedDay.split("-"); return (+p[1]) + "\uC6D4" + (+p[2]) + "\uC77C"; })() : ((s && s.month) + "\uC6D4" + (s && s.weekNo) + "\uC8FC");
+    var scopeLabel = dailySelectedDay ? (periodPrefix + " \uAE30\uC900") : "\uC120\uD0DD \uC8FC\uCC28 \uC790\uB8CC \uAE30\uC900";
     var html =
       '<div class="weekly-tool">' +
         '<div class="weekly-kpi-grid">' +
-          '<div class="weekly-kpi"><span>\uC811\uC218\uAC74\uC218</span><strong>' + comma(total) + '</strong><em>\uAC74</em><small>' + esc(scopeLabel) + '</small></div>' +
-          '<div class="weekly-kpi"><span>\uC190\uC2E4\uAE08\uC561</span><strong>' + comma(loss) + '</strong><em>\uC6D0</em><small>R\uC5F4 \uD569\uACC4 \uAE08\uC561 \uAE30\uC900</small></div>' +
-          '<div class="weekly-kpi" data-role="daily-top-items" style="cursor:pointer"><span>\uC8FC\uC694 \uC811\uC218 \uD488\uBAA9</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '\uAC74</em>' +
+          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC811\uC218\uAC74\uC218</span><strong>' + comma(total) + '</strong><em>\uAC74</em><small>' + esc(scopeLabel) + '</small></div>' +
+          '<div class="weekly-kpi"><span>' + esc(periodPrefix) + ' \uC190\uC2E4\uAE08\uC561</span><strong>' + comma(loss) + '</strong><em>\uC6D0</em><small>R\uC5F4 \uD569\uACC4 \uAE08\uC561 \uAE30\uC900</small></div>' +
+          '<div class="weekly-kpi" data-role="daily-top-items" style="cursor:pointer"><span>' + esc(periodPrefix) + ' \uC8FC\uC694 \uC811\uC218 \uD488\uBAA9</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '\uAC74</em>' +
             '<div class="weekly-kpi-tags">' + top.map(function (t) { return '<button type="button" tabindex="-1">' + esc(t.key) + ' <b>' + comma(t.qty) + '\uAC74</b></button>'; }).join("") + '</div>' +
           '</div>' +
         '</div>' +
@@ -657,30 +664,29 @@
       table.innerHTML = html;
     }
   }
+  function formatWeekRangeLabel(startKey, endKey) {
+    function fmt(k) { var p = k.split("-"); return (+p[1]) + "\uC6D4" + (+p[2]) + "\uC77C"; }
+    return startKey === endKey ? fmt(startKey) : (fmt(startKey) + " ~ " + fmt(endKey));
+  }
   function ensureWeeklyReceiptControls() {
     var y = document.getElementById("weeklyReceiptYearSelect");
-    var m = document.getElementById("weeklyReceiptMonthSelect");
-    var w = document.getElementById("weeklyReceiptWeekSelect");
-    if (!y || !m || !w) return null;
+    var sd = document.getElementById("weeklyReceiptStartDateInput");
+    var ed = document.getElementById("weeklyReceiptEndDateInput");
+    if (!y || !sd || !ed) return null;
     var now = new Date();
     var firstRun = !forcedInitialWeeklyReceiptPeriod;
     forcedInitialWeeklyReceiptPeriod = true;
     if (!y.options.length) for (var yy = 2024; yy <= 2027; yy++) y.appendChild(new Option(yy + "\uB144", String(yy)));
-    if (!m.options.length) for (var mm = 1; mm <= 12; mm++) m.appendChild(new Option(mm + "\uC6D4", String(mm)));
     if (firstRun || !y.value) y.value = String(now.getFullYear());
-    if (firstRun || !m.value) m.value = String(now.getMonth() + 1);
-    var year = +(txt(y.value).replace(/[^0-9]/g, "")) || now.getFullYear();
-    var month = +(txt(m.value).replace(/[^0-9]/g, "")) || now.getMonth() + 1;
-    var groups = weekGroups(year, month);
-    var old = +(txt(w.value).replace(/[^0-9]/g, "")) || 0;
-    if (firstRun || w.options.length !== groups.length) {
-      w.innerHTML = "";
-      groups.forEach(function (_, i) { w.appendChild(new Option((i + 1) + "\uC8FC", String(i + 1))); });
-      var defaultWeek = (!firstRun && old) || currentWeekNo(year, month, groups, now);
-      w.value = String(Math.min(defaultWeek, groups.length || 1));
+    if (firstRun || !sd.value || !ed.value) {
+      var mon = monday(now);
+      var fri = new Date(mon.getTime()); fri.setDate(fri.getDate() + 4);
+      sd.value = dateKey(mon);
+      ed.value = dateKey(fri);
     }
-    var weekNo = +(txt(w.value).replace(/[^0-9]/g, "")) || 1;
-    return { year: year, month: month, weekNo: weekNo, week: groups[weekNo - 1] || groups[0] || { label: weekNo + "\uC8FC", days: [] } };
+    if (ed.value < sd.value) ed.value = sd.value;
+    var year = +(txt(y.value).replace(/[^0-9]/g, "")) || now.getFullYear();
+    return { year: year, startKey: sd.value, endKey: ed.value };
   }
   var PACKAGING_OPTIONS = ["4라인", "7라인"];
   var PACKAGING_OTHER_VALUE = "__other__";
@@ -705,8 +711,7 @@
     ensurePackagingSelectOptions();
     var packagingSel = document.getElementById("weeklyReceiptPackagingSelect");
     var packagingFilter = packagingSel ? packagingSel.value : "";
-    var set = new Set((s.week && s.week.days) || []);
-    var rows = receiptItems.filter(function (r) { return r.year === s.year && r.month === s.month && set.has(r.dateKey); });
+    var rows = receiptItems.filter(function (r) { return r.dateKey >= s.startKey && r.dateKey <= s.endKey; });
     rows = packagingFilter === PACKAGING_OTHER_VALUE
       ? rows.filter(function (r) { return PACKAGING_OPTIONS.indexOf(r.packaging) < 0; })
       : packagingFilter
@@ -714,7 +719,7 @@
         : rows;
     lastWeeklyReceiptRows = rows;
     var packagingLabel = packagingFilter === PACKAGING_OTHER_VALUE ? "기타" : (packagingFilter || "전체");
-    lastWeeklyReceiptPopupTitle = s.year + "년 " + s.month + "월 " + s.weekNo + "주 (" + packagingLabel + ")";
+    lastWeeklyReceiptPopupTitle = s.year + "년 " + formatWeekRangeLabel(s.startKey, s.endKey) + " (" + packagingLabel + ")";
     var html = detailTableMarkup(rows);
     if (html !== lastWeeklyReceiptHtml) {
       lastWeeklyReceiptHtml = html;
@@ -729,31 +734,32 @@
     var top = topItems(rows, 3);
     var main = top[0] || { key: "-", qty: 0 };
     var catItems = dayTypePieItems(rows).filter(function (item) { return item.value > 0; });
-    var popup = window.open("", "weeklyReceiptSummaryV23_" + Date.now(), "popup=yes,width=900,height=420,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+    var popup = window.open("", "weeklyReceiptSummaryV23_" + Date.now(), "popup=yes,width=1800,height=840,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
     if (!popup) return;
     var catHtml = catItems.map(function (item) { return '<div>' + esc(item.label) + ' <b>' + comma(item.value) + '건</b></div>'; }).join("");
     var tagsHtml = top.map(function (t) { return '<span>' + esc(t.key) + ' <b>' + comma(t.qty) + '건</b></span>'; }).join("");
     popup.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8" /><title>' + esc(lastWeeklyReceiptPopupTitle) + '</title><style>' +
-      'body{margin:0;color:#111827;background:#f7f7f7;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif}' +
-      'header{position:sticky;top:0;padding:16px 20px;border-bottom:1px solid #dde3ea;background:#fff}' +
-      'h1{margin:0;font-size:18px}.close{position:absolute;right:14px;top:8px;border:0;background:#fff;font-size:22px;font-weight:900;cursor:pointer}' +
-      '.kpi-grid{display:flex;gap:16px;padding:24px}' +
-      '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:10px;padding:16px 18px}' +
-      '.kpi span{display:block;font-size:13px;color:#374151;font-weight:800;margin-bottom:10px}' +
-      '.kpi strong{font-size:26px;color:#c22323}' +
-      '.kpi strong.purple{color:#7950f2;font-size:20px}' +
-      '.kpi em{font-style:normal;font-size:13px;color:#6b7280;margin-left:4px}' +
-      '.kpi small{display:block;font-size:11.5px;color:#8b95a1;margin-top:6px}' +
-      '.cat-breakdown{display:grid;gap:5px;margin-top:12px;font-size:12.5px;color:#4b5563;font-weight:700}' +
-      '.kpi-tags{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}' +
-      '.kpi-tags span{display:inline-flex;align-items:center;gap:4px;background:#eef1f7;border-radius:20px;padding:4px 10px;font-size:11.5px;font-weight:700;color:#374151}' +
+      'body{margin:0;padding:20px;color:#111827;background:#f7f7f7;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif}' +
+      'header{position:relative;padding:22px 30px;margin-bottom:18px;border-radius:18px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10)}' +
+      'h1{margin:0;font-size:36px}.close{position:absolute;right:18px;top:16px;border:0;background:transparent;font-size:44px;font-weight:900;cursor:pointer}' +
+      '.kpi-panel{background:#e9edf5;border-radius:18px;padding:24px}' +
+      '.kpi-grid{display:flex;gap:22px}' +
+      '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:10px;padding:22px 24px}' +
+      '.kpi span{display:block;font-size:26px;color:#374151;font-weight:800;margin-bottom:16px}' +
+      '.kpi strong{font-size:52px;color:#c22323}' +
+      '.kpi strong.purple{color:#7950f2;font-size:40px}' +
+      '.kpi em{font-style:normal;font-size:26px;color:#6b7280;margin-left:6px}' +
+      '.kpi small{display:block;font-size:23px;color:#8b95a1;margin-top:10px}' +
+      '.cat-breakdown{display:grid;gap:8px;margin-top:18px;font-size:25px;color:#4b5563;font-weight:700}' +
+      '.kpi-tags{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}' +
+      '.kpi-tags span{display:inline-flex;align-items:center;gap:4px;background:#eef1f7;border-radius:20px;padding:6px 16px;font-size:23px;font-weight:700;color:#374151}' +
       '.kpi-tags span b{font-weight:900}' +
       '</style></head><body><header><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
-      '<div class="kpi-grid">' +
+      '<div class="kpi-panel"><div class="kpi-grid">' +
         '<div class="kpi"><span>접수건수</span><strong>' + comma(total) + '</strong><em>건</em><small>선택 조건 기준</small><div class="cat-breakdown">' + catHtml + '</div></div>' +
         '<div class="kpi"><span>손실금액</span><strong>' + comma(loss) + '</strong><em>원</em><small>R열 합계 금액 기준</small></div>' +
         '<div class="kpi"><span>주요 접수 품목</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '건</em><div class="kpi-tags">' + tagsHtml + '</div></div>' +
-      '</div>' +
+      '</div></div>' +
       '</body></html>');
     popup.document.close();
   }
@@ -838,16 +844,34 @@
     try {
       setStatus("\uB204\uC801\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4.");
       if (!await waitXlsx()) throw new Error("XLSX load failed");
-      var stateRes = await fetch("/api/claim-dashboard-state", { cache: "no-store" });
-      if (!stateRes.ok) throw new Error("state " + stateRes.status);
-      var saved = await stateRes.json();
-      var group = (saved.groups || []).find(function (g) { return (g.kind || g.type) === "receiptHistory" && g.sourceUrl; });
-      if (!group) throw new Error("no receiptHistory link");
-      try { localStorage.setItem("qualityClaimDashboard.savedLinks.v1", JSON.stringify(saved)); } catch (_) {}
-      var wbRes = await fetch("/api/google-workbook?url=" + encodeURIComponent(group.sourceUrl), { cache: "no-store" });
-      if (!wbRes.ok) throw new Error("workbook " + wbRes.status);
-      var buf = await wbRes.arrayBuffer();
-      var wb = XLSX.read(buf, { type: "array", cellDates: true });
+      var sourceUrl = "";
+      var s = sharedState();
+      if (s && Array.isArray(s.uploads)) {
+        var localEntry = s.uploads.find(function (u) { return u.kind === "receiptHistory" && u.sourceUrl; });
+        if (localEntry) sourceUrl = localEntry.sourceUrl;
+      }
+      if (!sourceUrl) {
+        var stateRes = await fetch("/api/claim-dashboard-state", { cache: "no-store" });
+        if (!stateRes.ok) throw new Error("state " + stateRes.status);
+        var saved = await stateRes.json();
+        var group = (saved.groups || []).find(function (g) { return (g.kind || g.type) === "receiptHistory" && g.sourceUrl; });
+        if (!group) throw new Error("no receiptHistory link");
+        sourceUrl = group.sourceUrl;
+        try { localStorage.setItem("qualityClaimDashboard.savedLinks.v1", JSON.stringify(saved)); } catch (_) {}
+      }
+      var isPublished = /docs\.google\.com\/spreadsheets\/d\/e\//.test(sourceUrl);
+      var wb;
+      if (isPublished) {
+        var csvRes = await fetch("/api/google-published-csv?url=" + encodeURIComponent(sourceUrl), { cache: "no-store" });
+        if (!csvRes.ok) throw new Error("csv " + csvRes.status);
+        var csvText = await csvRes.text();
+        wb = XLSX.read(csvText, { type: "string", cellDates: true });
+      } else {
+        var wbRes = await fetch("/api/google-workbook?url=" + encodeURIComponent(sourceUrl), { cache: "no-store" });
+        if (!wbRes.ok) throw new Error("workbook " + wbRes.status);
+        var buf = await wbRes.arrayBuffer();
+        wb = XLSX.read(buf, { type: "array", cellDates: true });
+      }
       var rows = [];
       wb.SheetNames.forEach(function (name) {
         var sheet = wb.Sheets[name];
@@ -862,13 +886,19 @@
       loaded = true;
       loadAttempts = 0;
       render(true);
+      if (dailyReadyResolve) { dailyReadyResolve(); dailyReadyResolve = null; }
     } catch (e) {
-      console.error("[daily-stable-v23] load failed", e);
       loaded = false;
       setStatus(T.uploadedNoData + " (" + (e && e.message ? e.message : e) + ")");
       if (loadAttempts < 4) {
         loadAttempts += 1;
         setTimeout(function () { loadData(); }, 600 * loadAttempts);
+      } else {
+        console.error("[daily-stable-v23] load failed", e);
+        if (dailyReadyResolve) {
+          dailyReadyResolve();
+          dailyReadyResolve = null;
+        }
       }
     } finally {
       loading = false;
@@ -934,11 +964,17 @@
     scheduleStableRender();
   }, true);
   document.addEventListener("change", function (event) {
-    if (!event.target || ["weeklyReceiptYearSelect", "weeklyReceiptMonthSelect", "weeklyReceiptWeekSelect", "weeklyReceiptPackagingSelect"].indexOf(event.target.id) < 0) return;
+    if (!event.target || ["weeklyReceiptYearSelect", "weeklyReceiptStartDateInput", "weeklyReceiptEndDateInput", "weeklyReceiptPackagingSelect"].indexOf(event.target.id) < 0) return;
     event.stopImmediatePropagation();
-    if (event.target.id === "weeklyReceiptYearSelect" || event.target.id === "weeklyReceiptMonthSelect") {
-      var ww = document.getElementById("weeklyReceiptWeekSelect");
-      if (ww) ww.innerHTML = "";
+    if (event.target.id === "weeklyReceiptYearSelect") {
+      var yy = +(txt(event.target.value).replace(/[^0-9]/g, ""));
+      ["weeklyReceiptStartDateInput", "weeklyReceiptEndDateInput"].forEach(function (id) {
+        var input = document.getElementById(id);
+        if (input && input.value && yy) {
+          var parts = input.value.split("-");
+          input.value = yy + "-" + parts[1] + "-" + parts[2];
+        }
+      });
     }
     setTimeout(renderWeeklyReceiptTable, 0);
   }, true);
@@ -1202,21 +1238,29 @@
   function applyDefectColor(color) {
     if (!defectColorSavedRange) return;
     var range = defectColorSavedRange;
+    var container = range.commonAncestorContainer;
+    var startEl = container.nodeType === 1 ? container : container.parentElement;
+    var cell = startEl && startEl.closest ? startEl.closest(".defect-desc") : null;
+    if (!cell) { hideDefectColorToolbar(); return; }
+    cell.setAttribute("contenteditable", "true");
+    cell.focus();
     var sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
-    var span = document.createElement("span");
-    if (color) span.style.color = color;
-    span.appendChild(range.extractContents());
-    range.insertNode(span);
-    sel.removeAllRanges();
-    var cell = span.closest(".defect-desc");
-    if (cell) {
-      var key = cell.getAttribute("data-defect-key");
-      if (key) {
-        defectColorMap[key] = cell.innerHTML;
-        saveDefectColorMap();
+    try {
+      document.execCommand("styleWithCSS", false, true);
+      if (color) {
+        document.execCommand("foreColor", false, color);
+      } else {
+        document.execCommand("removeFormat");
       }
+    } catch (_) {}
+    sel.removeAllRanges();
+    cell.removeAttribute("contenteditable");
+    var key = cell.getAttribute("data-defect-key");
+    if (key) {
+      defectColorMap[key] = cell.innerHTML;
+      saveDefectColorMap();
     }
     hideDefectColorToolbar();
   }

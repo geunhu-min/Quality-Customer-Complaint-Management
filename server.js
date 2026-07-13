@@ -99,7 +99,9 @@ async function readDefectCloseData() {
 
 async function writeDefectCloseData(data) {
   await ensureDefectCloseDataFile();
-  await fs.promises.writeFile(defectCloseDataFile, JSON.stringify(normalizeDefectCloseData(data), null, 2), "utf8");
+  const tmpFile = `${defectCloseDataFile}.${process.pid}.${Date.now()}.tmp`;
+  await fs.promises.writeFile(tmpFile, JSON.stringify(normalizeDefectCloseData(data), null, 2), "utf8");
+  await fs.promises.rename(tmpFile, defectCloseDataFile);
 }
 
 function normalizeClaimDashboardState(data) {
@@ -128,7 +130,9 @@ async function readClaimDashboardState() {
 
 async function writeClaimDashboardState(data) {
   await ensureClaimDashboardStateFile();
-  await fs.promises.writeFile(claimDashboardStateFile, JSON.stringify(normalizeClaimDashboardState(data), null, 2), "utf8");
+  const tmpFile = `${claimDashboardStateFile}.${process.pid}.${Date.now()}.tmp`;
+  await fs.promises.writeFile(tmpFile, JSON.stringify(normalizeClaimDashboardState(data), null, 2), "utf8");
+  await fs.promises.rename(tmpFile, claimDashboardStateFile);
 }
 
 async function readRequestJson(req) {
@@ -171,6 +175,28 @@ async function handleGoogleWorkbook(req, res) {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "X-Sheet-Title": encodeURIComponent(title),
       "Cache-Control": "no-store"
+    });
+  } catch (err) {
+    send(res, 500, JSON.stringify({ error: err.message }), {
+      "Content-Type": "application/json; charset=utf-8"
+    });
+  }
+}
+
+async function handleGooglePublishedCsv(req, res) {
+  const parsed = new URL(req.url, `http://${req.headers.host}`);
+  const sheetUrl = parsed.searchParams.get("url") || "";
+  try {
+    if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(sheetUrl)) {
+      throw new Error("올바른 웹에 게시 주소가 아닙니다.");
+    }
+    const response = await fetch(sheetUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" }
+    });
+    if (!response.ok) throw new Error(`Google 응답 오류 ${response.status}`);
+    const text = await response.text();
+    send(res, 200, text, {
+      "Content-Type": "text/csv; charset=utf-8"
     });
   } catch (err) {
     send(res, 500, JSON.stringify({ error: err.message }), {
@@ -387,6 +413,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url.startsWith("/api/google-drive-folder")) {
     handleGoogleDriveFolder(req, res);
+    return;
+  }
+  if (req.url.startsWith("/api/google-published-csv")) {
+    handleGooglePublishedCsv(req, res);
     return;
   }
   if (req.url.startsWith("/api/debug-log")) {

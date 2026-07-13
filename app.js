@@ -132,8 +132,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   window.__lastRestoreHadFailures = false;
   setSyncIndicator("checking");
-  restoreSavedDashboardState().then((restored) => {
+  restoreSavedDashboardState().then(async (restored) => {
     if (!restored) renderAll();
+    if (window.__dailyStableReadyPromise) {
+      try { await window.__dailyStableReadyPromise; } catch (_) {}
+    }
     setSyncIndicator(window.__lastRestoreHadFailures ? "fail" : "done");
   }).catch(() => {
     setSyncIndicator("fail");
@@ -179,16 +182,6 @@ function bindDataInsert() {
   modal?.addEventListener("click", (event) => {
     if (event.target === modal) closeDataInsert();
   });
-  document.getElementById("loadExistingData")?.addEventListener("click", () => {
-    loadSpreadsheetLink({
-      inputId: "existingDataLink",
-      kind: "cost",
-      label: "기존데이터",
-      groupKey: "existing-data",
-      groupTitle: "기존데이터",
-      order: 10
-    });
-  });
   document.getElementById("loadReceiptData")?.addEventListener("click", () => {
     loadSpreadsheetLink({
       inputId: "receiptDataLink",
@@ -199,9 +192,14 @@ function bindDataInsert() {
       order: 261
     });
   });
-  document.getElementById("loadReceiptHistoryData")?.addEventListener("click", () => {
-    loadSpreadsheetLink({
-      inputId: "receiptHistoryDataLink",
+  document.getElementById("clearReceiptDataLink")?.addEventListener("click", () => clearLinkedGroup("26-summary", "receiptDataLink"));
+
+  document.getElementById("loadExistingDataPublish")?.addEventListener("click", loadExistingDataBulk);
+  document.getElementById("clearExistingDataPublishLink")?.addEventListener("click", deleteExistingDataBulk);
+  document.getElementById("existingDataPublishYear")?.addEventListener("change", populateExistingDataBulkInput);
+  document.getElementById("loadReceiptHistoryPublish")?.addEventListener("click", () => {
+    loadPublishedCsvLink({
+      inputId: "receiptHistoryPublishLink",
       kind: "receiptHistory",
       label: "접수내역 (누적데이터)",
       groupKey: "receipt-history",
@@ -209,9 +207,7 @@ function bindDataInsert() {
       order: 300
     });
   });
-  document.getElementById("clearExistingDataLink")?.addEventListener("click", () => clearLinkedGroup("existing-data", "existingDataLink"));
-  document.getElementById("clearReceiptDataLink")?.addEventListener("click", () => clearLinkedGroup("26-summary", "receiptDataLink"));
-  document.getElementById("clearReceiptHistoryDataLink")?.addEventListener("click", () => clearLinkedGroup("receipt-history", "receiptHistoryDataLink"));
+  document.getElementById("clearReceiptHistoryPublishLink")?.addEventListener("click", () => clearLinkedGroup("receipt-history", "receiptHistoryPublishLink"));
 }
 
 function bindDashboardTabs() {
@@ -279,8 +275,134 @@ async function loadSpreadsheetLink({ inputId, kind, label, groupKey, groupTitle,
     fillSavedLinkInputs();
     renderLinkedDataList();
     closeDataInsert();
+    if (kind === "receiptHistory" && typeof window.__dailyStableReloadV23 === "function") window.__dailyStableReloadV23();
+    refreshClaimAccumFrame();
+    alert(`${label} 삽입 완료${loadedText}`);
   } catch (err) {
     alert(`링크 불러오기 실패: ${err.message}`);
+  }
+}
+
+function parseMonthPrefixedLine(line) {
+  const text = String(line || "").trim();
+  const match = text.match(/^(\d{1,2})\s*월\s*[:\-]?\s*(https?:\/\/.+)$/);
+  if (match) return { month: Number(match[1]), url: match[2].trim() };
+  return { month: null, url: text };
+}
+
+async function fetchPublishedCsvDataSet(urlText, kind, label, year) {
+  const lines = String(urlText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (kind === "cost" && lines.length > 1) return fetchPublishedCsvMonthlyDataSets(lines, label, year);
+  return fetchPublishedCsvSingleDataSet(parseMonthPrefixedLine(lines[0] || urlText).url, kind, label, year);
+}
+
+async function fetchPublishedCsvSingleDataSet(url, kind, label, year) {
+  if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
+  const proxyUrl = `/api/google-published-csv?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, { cache: "no-store" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `게시 주소 응답 오류 ${res.status}`);
+  }
+  const text = await res.text();
+  const workbook = XLSX.read(text, { type: "string" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) throw new Error("시트를 읽지 못했습니다.");
+  const rows = (kind === "cost" ? deadlineRowsFromSheet(sheet) : excelRowsFromSheet(sheet)).map((row) => {
+    row.__sheetTitle = sheetName;
+    return row;
+  });
+  return [{
+    label,
+    fileName: url,
+    sheetName,
+    documentTitle: year ? `${year}년 마감자료` : "",
+    countHint: rows.length,
+    defectAmount: kind === "cost" ? sumDeadlineAmount(rows) : undefined,
+    rows
+  }];
+}
+
+async function fetchPublishedCsvMonthlyDataSets(lines, label, year) {
+  if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
+  const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const documentTitle = year ? `${year}년 마감자료` : "";
+  const results = await Promise.all(lines.map(async (line, i) => {
+    const parsed = parseMonthPrefixedLine(line);
+    const monthNum = parsed.month || (i + 1);
+    const monthLabel = monthLabels[monthNum - 1] || `${monthNum}월`;
+    const url = parsed.url;
+    const proxyUrl = `/api/google-published-csv?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl, { cache: "no-store" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`${monthLabel} 시트: ${err.error || `응답 오류 ${res.status}`}`);
+    }
+    const text = await res.text();
+    const workbook = XLSX.read(text, { type: "string" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) throw new Error(`${monthLabel} 시트를 읽지 못했습니다.`);
+    const rows = deadlineRowsFromSheet(sheet).map((row) => {
+      row.__sheetTitle = monthLabel;
+      return row;
+    });
+    return {
+      label: monthLabel,
+      fileName: url,
+      sheetName: monthLabel,
+      documentTitle,
+      countHint: rows.length,
+      defectAmount: sumDeadlineAmount(rows),
+      rows
+    };
+  }));
+  return results;
+}
+
+async function loadPublishedCsvLink({ inputId, kind, label, groupKey, groupTitle, order, year }) {
+  const input = document.getElementById(inputId);
+  const url = input?.value.trim();
+  if (!url) {
+    alert("웹에 게시 주소를 입력해 주세요.");
+    return;
+  }
+  try {
+    const dataSets = await fetchPublishedCsvDataSet(url, kind, label, year);
+    const groupMeta = linkedGroupMeta({ kind, label, groupKey, groupTitle, order }, url, dataSets);
+    removeExistingLinkedEntries(groupMeta.groupKey);
+    let entry = null;
+    dataSets.forEach((dataSet) => {
+      entry = addUploadEntry({
+        kind,
+        fileName: dataSet.fileName || url,
+        label: dataSet.label || label,
+        rows: normalizeRows(dataSet.rows, kind),
+        countHint: dataSet.countHint,
+        defectAmount: dataSet.defectAmount,
+        sourceUrl: url,
+        sourceSheet: dataSet.sheetName || "",
+        selected: true,
+        excluded: 0,
+        sourceType: "spreadsheet-link",
+        groupKey: groupMeta.groupKey,
+        groupTitle: groupMeta.groupTitle,
+        order: groupMeta.order
+      });
+    });
+    activeUploadId = entry?.id || activeUploadId;
+    rebuildFromSelection();
+    renderAll(`${label} 웹게시 링크 연결 완료`);
+    saveDashboardState();
+    fillSavedLinkInputs();
+    renderLinkedDataList();
+    closeDataInsert();
+    if (kind === "receiptHistory" && typeof window.__dailyStableReloadV23 === "function") window.__dailyStableReloadV23();
+    refreshClaimAccumFrame();
+    alert(`${label} 삽입 완료`);
+  } catch (err) {
+    alert(`웹게시 링크 불러오기 실패: ${err.message}`);
   }
 }
 
@@ -300,16 +422,125 @@ function removeExistingLinkedEntries(groupKey) {
 }
 
 function fillSavedLinkInputs() {
-  const existingGroups = linkedGroupsForInput("existing-data");
   const receiptGroups = linkedGroupsForInput("26-summary");
   const receiptHistoryGroups = linkedGroupsForInput("receipt-history");
-  setInputValue("existingDataLink", "");
   setInputValue("receiptDataLink", "");
-  setInputValue("receiptHistoryDataLink", "");
-  setInputStatus("existingDataLink", existingGroups);
+  setInputValue("receiptHistoryPublishLink", "");
+  populateExistingDataBulkInput();
   setInputStatus("receiptDataLink", receiptGroups);
-  setInputStatus("receiptHistoryDataLink", receiptHistoryGroups);
+  setInputStatus("receiptHistoryPublishLink", receiptHistoryGroups, "https://docs.google.com/spreadsheets/d/e/.../pub?output=csv");
   renderLinkedDataList();
+}
+
+function existingDataGroupKeyForYear(year) {
+  const yy = String(year || "").slice(-2);
+  return yy ? `existing-${yy}-cost` : "";
+}
+
+function existingDataGroupForYear(year) {
+  const groupKey = existingDataGroupKeyForYear(year);
+  if (!groupKey) return null;
+  return allLinkedDisplayGroups().find((group) => group.key === groupKey) || null;
+}
+
+function populateExistingDataBulkInput() {
+  const yearSel = document.getElementById("existingDataPublishYear");
+  const input = document.getElementById("existingDataPublishLink");
+  if (!input) return;
+  const group = existingDataGroupForYear(yearSel?.value);
+  const items = group ? (group.items || []) : [];
+  if (items.length > 1) {
+    input.value = items.filter((item) => item.sourceUrl).map((item) => item.sourceUrl).join("\n");
+  } else {
+    input.value = items[0]?.sourceUrl || "";
+  }
+}
+
+function refreshClaimAccumFrame() {
+  const frame = document.querySelector(".defect-close-frame");
+  const win = frame?.contentWindow;
+  if (!win) return;
+  try {
+    if (typeof win.syncClosingLinksFromMainDashboard === "function") {
+      Promise.resolve(win.syncClosingLinksFromMainDashboard()).then(() => {
+        if (typeof win.render === "function") win.render();
+      }).catch(() => {});
+    }
+  } catch (_) {}
+}
+
+async function loadExistingDataBulk() {
+  const yearSel = document.getElementById("existingDataPublishYear");
+  const input = document.getElementById("existingDataPublishLink");
+  const year = yearSel?.value || "";
+  const raw = input?.value.trim();
+  if (!year) {
+    alert("연도를 선택해 주세요.");
+    return;
+  }
+  if (!raw) {
+    alert("웹에 게시 주소를 입력해 주세요.");
+    return;
+  }
+  const groupKey = existingDataGroupKeyForYear(year);
+  const groupTitle = `${year}년 마감자료`;
+  try {
+    const dataSets = await fetchPublishedCsvDataSet(raw, "cost", "기존데이터", year);
+    state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
+    let entry = null;
+    dataSets.forEach((dataSet) => {
+      entry = addUploadEntry({
+        kind: "cost",
+        fileName: dataSet.fileName || raw,
+        label: dataSet.label,
+        rows: normalizeRows(dataSet.rows, "cost"),
+        countHint: dataSet.countHint,
+        defectAmount: dataSet.defectAmount,
+        sourceUrl: dataSet.fileName || raw,
+        sourceSheet: dataSet.sheetName || "",
+        selected: true,
+        excluded: 0,
+        sourceType: "spreadsheet-link",
+        groupKey,
+        groupTitle,
+        order: Number(year)
+      });
+    });
+    activeUploadId = entry?.id || activeUploadId;
+    rebuildFromSelection();
+    renderAll(`${groupTitle} 연결 완료`);
+    saveDashboardState();
+    fillSavedLinkInputs();
+    renderLinkedDataList();
+    refreshClaimAccumFrame();
+    alert(`${groupTitle} 삽입 완료 (${dataSets.length}개월, 총 ${dataSets.reduce((sum, d) => sum + (d.countHint || 0), 0)}건)`);
+  } catch (err) {
+    alert(`웹게시 링크 불러오기 실패: ${err.message}`);
+  }
+}
+
+function deleteExistingDataBulk() {
+  const yearSel = document.getElementById("existingDataPublishYear");
+  const year = yearSel?.value || "";
+  if (!year) return;
+  const groupKey = existingDataGroupKeyForYear(year);
+  const hasData = state.uploads.some((entry) => entry.groupKey === groupKey) ||
+    savedLinkGroupsCache.some((group) => (group.groupKey || group.sourceUrl) === groupKey);
+  if (!hasData) {
+    alert(`${year}년 마감자료가 없습니다.`);
+    return;
+  }
+  if (!confirm(`${year}년 마감자료를 전부 삭제할까요?`)) return;
+  state.uploads.filter((entry) => entry.groupKey === groupKey).forEach(revokeEntryImages);
+  state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
+  removeCachedLinkedGroups([groupKey]);
+  activeUploadId = state.uploads[0]?.id || "sample";
+  renderAll(`${year}년 마감자료 삭제 완료`);
+  saveDashboardState();
+  fillSavedLinkInputs();
+  renderLinkedDataList();
+  refreshClaimAccumFrame();
+  alert(`${year}년 마감자료 삭제 완료`);
 }
 
 function setInputValue(inputId, value) {
@@ -496,6 +727,9 @@ function deleteLinkedGroup(groupKey) {
 }
 
 async function fetchSpreadsheetDataSets(url, kind, label) {
+  if (isPublishedCsvUrl(url)) {
+    return fetchPublishedCsvDataSet(url, kind, label);
+  }
   if (isGoogleSheetUrl(url) && kind === "cost") {
     const workbook = await fetchGoogleMonthlyWorkbookByExport(url);
     if (workbook.length) return workbook;
@@ -676,6 +910,10 @@ function spreadsheetCsvUrl(url) {
 
 function isGoogleSheetUrl(url) {
   return /docs\.google\.com\/spreadsheets\/d\/[^/]+/.test(String(url || ""));
+}
+
+function isPublishedCsvUrl(url) {
+  return /docs\.google\.com\/spreadsheets\/d\/e\//.test(String(url || ""));
 }
 
 function googleSheetInfo(url) {
@@ -2259,21 +2497,22 @@ function renderWeeklyDefect() {
     return;
   }
   const stats = weeklyDashboardStats(rows);
+  const periodPrefix = weeklySelectedWeek ? `${stats.monthLabel}${weeklySelectedWeek}` : stats.monthLabel;
   holder.innerHTML = `
     <div class="weekly-tool">
       <div class="weekly-kpi-grid">
         <div class="weekly-kpi">
-          <span>클레임건수</span>
+          <span>${escapeHtml(periodPrefix)} 클레임건수</span>
           <strong>${formatNumber(stats.totalCount)}</strong><em>건</em>
           <small>접수번호 기준 카운트</small>
         </div>
         <div class="weekly-kpi">
-          <span>총 손실 금액</span>
+          <span>${escapeHtml(periodPrefix)} 총 손실 금액</span>
           <strong>${formatNumber(stats.totalAmount)}</strong><em>원</em>
           <small>L열 금액 + 건수당 60,000원</small>
         </div>
         <div class="weekly-kpi">
-          <span>주요 클레임 품목</span>
+          <span>${escapeHtml(periodPrefix)} 주요 클레임 품목</span>
           <button class="weekly-main-item-button" type="button" onclick="openWeeklyTopItemsPopup()">${escapeHtml(stats.topItem.displayLabel || stats.topItem.label)}</button><em>${formatNumber(stats.topItem.count)}건</em>
           <small>I열 품목명 + J열 색상 / 건수 TOP 5</small>
           ${weeklyTopItemsInlineMarkup(stats.topItems)}
@@ -2315,21 +2554,22 @@ function renderMonthDefect() {
   const totalAmount = selectedMonthStat ? selectedMonthStat.amount : months.reduce((sum, item) => sum + item.amount, 0);
   const scopedRows = monthlyDefectScopedRows(rows);
   const topItems = monthlyTopClaimItems(scopedRows, 10, { hideMaterial: true });
+  const periodPrefix = monthlyDefectSelectedMonth || currentYearLabel();
   holder.innerHTML = `
     <div class="weekly-tool">
       <div class="weekly-kpi-grid">
         <div class="weekly-kpi">
-          <span>클레임건수</span>
+          <span>${escapeHtml(periodPrefix)} 클레임건수</span>
           <strong>${formatNumber(totalCount)}</strong><em>건</em>
           <small>금년도 마감자료 월별 합계</small>
         </div>
         <div class="weekly-kpi">
-          <span>총 손실 금액</span>
+          <span>${escapeHtml(periodPrefix)} 총 손실 금액</span>
           <strong>${formatNumber(totalAmount)}</strong><em>원</em>
           <small>마감 금액 + 건수당 60,000원</small>
         </div>
         <div class="weekly-kpi">
-          <span>주요 클레임 품목</span>
+          <span>${escapeHtml(periodPrefix)} 주요 클레임 품목</span>
           <button class="weekly-main-item-button" type="button" onclick="openMonthlyTopItemsPopup()">${escapeHtml(topItems[0]?.displayLabel || "-")}</button><em>${formatNumber(topItems[0]?.count || 0)}건</em>
           <small>제품코드 + 색상 / 건수 TOP 10</small>
           ${monthlyTopItemsInlineMarkup(topItems)}
@@ -2491,7 +2731,7 @@ function monthlyDefectBarChartMarkup(months) {
     const x = padLeft + index * slot + (slot - barWidth) / 2;
     const y = padTop + innerH - barH;
     const active = month.week === monthlyDefectSelectedMonth;
-    return `<g class="weekly-svg-bar-group" onclick="selectMonthlyDefectMonth('${escapeJs(month.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'monthly','${escapeJs(month.week)}')" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
+    return `<g class="weekly-svg-bar-group" onclick="selectMonthlyDefectMonth('${escapeJs(month.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'monthly','${escapeJs(month.week)}',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
       <rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>
       <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>
       <text x="${x + barWidth / 2}" y="${height - 8}" text-anchor="middle" class="weekly-axis-label">${escapeHtml(month.week)}</text>
@@ -3886,7 +4126,7 @@ function weeklyBarChartMarkup(weeks) {
     const x = padLeft + index * slot + (slot - barWidth) / 2;
     const y = padTop + innerH - barH;
     const active = week.week === weeklySelectedWeek;
-    return `<g class="weekly-svg-bar-group" onclick="selectWeeklyWeek('${escapeJs(week.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'weekly','${escapeJs(week.week)}')" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
+    return `<g class="weekly-svg-bar-group" onclick="selectWeeklyWeek('${escapeJs(week.week)}')" onmouseenter="window.showBarHoverPie&&window.showBarHoverPie(this,'weekly','${escapeJs(week.week)}',event)" onmouseleave="window.hideBarHoverPie&&window.hideBarHoverPie()">
       <rect x="${x}" y="${y}" width="${barWidth}" height="${Math.max(1, barH)}" rx="3" class="weekly-svg-bar${active ? " active" : ""}"></rect>
       <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" class="weekly-svg-bar-value">${formatNumber(value)}</text>
       <text x="${x + barWidth / 2}" y="${height - 8}" text-anchor="middle" class="weekly-axis-label">${escapeHtml(week.week)}</text>
@@ -4510,7 +4750,7 @@ function renderFileCards() {
   const holder = document.getElementById("fileCards");
   const toggle = document.getElementById("toggleFileCards");
   const panel = document.querySelector(".file-panel");
-  if (toggle) toggle.textContent = "데이터 삭제";
+  if (toggle) toggle.textContent = "데이터 관리";
   panel?.classList.toggle("is-collapsed", fileCardsCollapsed);
   if (!holder) return;
 
@@ -4768,6 +5008,8 @@ function setExcluded(id, value) {
   entry.excluded = clamp(Number(value || 0), 0, count);
   activeUploadId = id;
   renderAll("제외건수 반영 완료");
+  if (typeof renderMonthDefect === "function") renderMonthDefect();
+  if (typeof renderWeeklyDefect === "function") renderWeeklyDefect();
   saveDashboardState();
 }
 
@@ -4821,6 +5063,12 @@ function clearAllData() {
   renderDetails();
   document.getElementById("dataStatus").textContent = "데이터 초기화됨";
   clearSavedDashboardState();
+  const adminToken = typeof window.__qcdGetAdminToken === "function" ? window.__qcdGetAdminToken() : "";
+  fetch("/api/claim-dashboard-state", {
+    method: "DELETE",
+    headers: adminToken ? { "X-Admin-Token": adminToken } : {}
+  }).catch(() => {});
+  if (typeof window.__dailyStableReloadV23 === "function") window.__dailyStableReloadV23();
 }
 
 function renderCost() {
@@ -5214,6 +5462,7 @@ function saveDashboardState(force = false) {
       entries: group.entries || []
     });
   });
+  const touchedFromUploads = new Set();
   state.uploads
     .filter((entry) => entry.sourceType === "spreadsheet-link" && entry.sourceUrl)
     .forEach((entry) => {
@@ -5229,9 +5478,14 @@ function saveDashboardState(force = false) {
           entries: []
         });
       }
+      if (!touchedFromUploads.has(key)) {
+        touchedFromUploads.add(key);
+        linkedGroups.get(key).entries = [];
+      }
       linkedGroups.get(key).entries.push({
         label: entry.label,
         sourceSheet: entry.sourceSheet || "",
+        sourceUrl: entry.sourceUrl,
         selected: !!entry.selected,
         excluded: Number(entry.excluded || 0)
       });
@@ -5439,13 +5693,10 @@ async function restoreSavedDashboardState() {
   try {
     revokeImages();
     state.uploads = [];
-    for (const group of payload.groups || []) {
-      try {
-        await restoreSavedGroup(group);
-      } catch (err) {
-        failedGroups.push(group);
-      }
-    }
+    const restoreResults = await Promise.allSettled((payload.groups || []).map((group) => restoreSavedGroup(group)));
+    restoreResults.forEach((result, index) => {
+      if (result.status === "rejected") failedGroups.push(payload.groups[index]);
+    });
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
     restoreSavedImages(dbImages.length ? dbImages : payload.images || []);
@@ -5493,7 +5744,11 @@ function restoreSavedImages(images) {
 async function restoreSavedGroup(group) {
   const savedEntries = group.entries || [];
   const restoreLabel = group.kind === "summary" ? (savedEntries[0]?.label || group.label) : group.label;
-  const dataSets = await fetchSpreadsheetDataSets(group.sourceUrl, group.kind, restoreLabel);
+  const hasDistinctUrls = group.kind === "cost" && savedEntries.length > 1 && savedEntries.every((entry) => entry.sourceUrl);
+  const fetchUrl = hasDistinctUrls
+    ? savedEntries.slice().sort((a, b) => monthNumber(a.label) - monthNumber(b.label)).map((entry) => entry.sourceUrl).join("\n")
+    : group.sourceUrl;
+  const dataSets = await fetchSpreadsheetDataSets(fetchUrl, group.kind, restoreLabel);
   const groupMeta = linkedGroupMeta(group, group.sourceUrl, dataSets);
   const savedByLabel = new Map(savedEntries.map((entry) => [entry.label, entry]));
   dataSets
@@ -5507,7 +5762,7 @@ async function restoreSavedGroup(group) {
         rows: normalizeRows(dataSet.rows, group.kind),
         countHint: dataSet.countHint,
         defectAmount: dataSet.defectAmount,
-        sourceUrl: group.sourceUrl,
+        sourceUrl: dataSet.fileName || saved.sourceUrl || group.sourceUrl,
         sourceSheet: dataSet.sheetName || saved.sourceSheet || "",
         selected: saved.selected ?? true,
         excluded: Number(saved.excluded || 0),
@@ -6258,7 +6513,6 @@ function buildClaimSummaryMeta(latestDate) {
       costCollapsed = !costCollapsed;
       body.classList.toggle("is-hidden", costCollapsed);
       button.setAttribute("aria-expanded", String(!costCollapsed));
-      button.textContent = (costCollapsed ? "> " : "\u2228 ") + "\uACE0\uAC1D\uD074\uB808\uC784 \uC8FC\uAC04\uC811\uC218 \uB0B4\uC5ED";
     });
   }
 
@@ -6418,7 +6672,6 @@ function buildClaimSummaryMeta(latestDate) {
     var collapsed = !!window.__qualityCostCollapsedFinal;
     body.classList.toggle("is-hidden", collapsed);
     button.setAttribute("aria-expanded", String(!collapsed));
-    button.textContent = (collapsed ? "> " : "\u2228 ") + "\uACE0\uAC1D\uD074\uB808\uC784 \uC8FC\uAC04\uC811\uC218 \uB0B4\uC5ED";
   }
 
   window.openLinkedSheetUrl = function (url) {
@@ -6572,7 +6825,7 @@ function buildClaimSummaryMeta(latestDate) {
     return card;
   }
 
-  window.showBarHoverPie = function (anchorEl, type, key) {
+  window.showBarHoverPie = function (anchorEl, type, key, evt) {
     var data = null;
     if (type === "daily") {
       data = typeof window.__dailyStableGetHoverPieData === "function" ? window.__dailyStableGetHoverPieData(key) : null;
@@ -6590,12 +6843,17 @@ function buildClaimSummaryMeta(latestDate) {
     var card = ensureBarHoverCard();
     card.innerHTML = html;
     card.classList.add("show");
-    var rect = anchorEl.getBoundingClientRect();
     var cardW = card.offsetWidth, cardH = card.offsetHeight;
-    var left = rect.left + rect.width / 2 - cardW / 2;
+    var margin = 20;
+    var rect = anchorEl.getBoundingClientRect();
+    var cx = evt ? evt.clientX : (rect.left + rect.width / 2);
+    var cy = evt ? evt.clientY : rect.top;
+    var left = cx + margin;
+    var top = cy + margin;
+    if (left + cardW > window.innerWidth) left = cx - cardW - margin;
+    if (top + cardH > window.innerHeight) top = cy - cardH - margin;
     left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
-    var top = rect.top - cardH - 10;
-    if (top < 8) top = rect.bottom + 10;
+    top = Math.max(8, Math.min(top, window.innerHeight - cardH - 8));
     card.style.left = left + "px";
     card.style.top = top + "px";
   };
@@ -8808,6 +9066,7 @@ function buildClaimSummaryMeta(latestDate) {
     return { kind: kind, label: label || kind, fileName: label || kind, rows: (rows || []).map(function (item) { return rawRow(item.row || item); }), excluded: 0 };
   }
   function refreshDailyTablesV6() {
+    if (window.__USE_EXTERNAL_DAILY_STABLE) return;
     var sel = dailySelection();
     var before = receiptRowsBeforeSelectionMonth(sel);
     var current = receiptRowsUpToWeekSelection(sel);
@@ -8873,6 +9132,7 @@ function buildClaimSummaryMeta(latestDate) {
     }).slice(0, 5);
   }
   function renderDailyCardsV6() {
+    if (window.__USE_EXTERNAL_DAILY_STABLE) return;
     var box = document.getElementById("dailyReceiptCards");
     if (!box) return;
     var rows = receiptRowsForWeekSelection(dailySelection());
@@ -9276,6 +9536,7 @@ function buildClaimSummaryMeta(latestDate) {
     return Array.from(map.entries()).map(function (pair) { return { label: pair[0], count: pair[1] }; }).sort(function (a, b) { return b.count - a.count || a.label.localeCompare(b.label, "ko", { numeric: true }); }).slice(0, 5);
   }
   function renderDailyCardsV7(items) {
+    if (window.__USE_EXTERNAL_DAILY_STABLE) return;
     var box = id("dailyReceiptCards");
     if (!box) return;
     var amount = (items || []).reduce(function (sum, item) { return sum + amountFromReceipt(item.row); }, 0);
@@ -9286,6 +9547,7 @@ function buildClaimSummaryMeta(latestDate) {
       '<article class="daily-receipt-card"><span>' + TXT.mainItem + '</span><strong class="purple">' + html(first.label) + '</strong><em>' + fmt(first.count) + TXT.caseUnit + '</em><small>' + TXT.itemTop + '</small><div class="daily-receipt-tags">' + top.map(function (item) { return '<span>' + html(item.label) + ' ' + fmt(item.count) + TXT.caseUnit + '</span>'; }).join("") + '</div></article>';
   }
   function refreshDailyV7() {
+    if (window.__USE_EXTERNAL_DAILY_STABLE) return;
     ensureDailyWeekOptionsV7();
     var sel = dailySelectionV7();
     var before = itemsBeforeSelectedMonth(sel);
@@ -11165,23 +11427,15 @@ function buildClaimSummaryMeta(latestDate) {
       holder.innerHTML = '<div class="linked-empty">\uC800\uC7A5\uB41C \uB9C1\uD06C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</div>';
       return;
     }
-    holder.innerHTML = groups.map(function (group, index) {
+    holder.innerHTML = groups.map(function (group) {
       var url = sourceUrl(group);
       return '<div class="linked-row linked-row-v15" title="' + esc(url) + '">' +
         '<div class="linked-main-v15"><strong>' + esc(displayTitle(group)) + '</strong><span>' + esc(kindText(group)) + '</span></div>' +
         '<div class="linked-actions-v15">' +
-          '<button type="button" data-link-open-index="' + index + '"' + (url ? '' : ' disabled') + '>\uB9C1\uD06C \uC5F4\uAE30</button>' +
           '<button type="button" data-link-delete-key="' + esc(group.key) + '">\uC0AD\uC81C</button>' +
         '</div>' +
       '</div>';
     }).join("");
-    holder.querySelectorAll("[data-link-open-index]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        var index = Number(button.getAttribute("data-link-open-index"));
-        var url = sourceUrl(groups[index]);
-        if (url) window.open(url, "_blank");
-      });
-    });
     holder.querySelectorAll("[data-link-delete-key]").forEach(function (button) {
       button.addEventListener("click", function () {
         var key = button.getAttribute("data-link-delete-key");
@@ -13698,9 +13952,10 @@ function buildClaimSummaryMeta(latestDate) {
   var prevSharedRestore = typeof restoreSavedDashboardState === "function" ? restoreSavedDashboardState : null;
   if (prevSharedRestore) {
     window.restoreSavedDashboardState = restoreSavedDashboardState = async function () {
+      var isLocalhost = location.hostname === "127.0.0.1" || location.hostname === "localhost";
       var hasLocal = false;
       try { hasLocal = !!localStorage.getItem(dashboardStorageKey); } catch (_) {}
-      if (!hasLocal) {
+      if (!hasLocal && !isLocalhost) {
         try {
           var res = await fetch("/api/claim-dashboard-state", { cache: "no-store" });
           if (res.ok) {

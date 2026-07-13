@@ -16,7 +16,7 @@
 body {
   margin: 0;
   color: var(--text);
-  background: #ffffff;
+  background: #f2f4f7;
   font-family: "Malgun Gothic", "Segoe UI", Arial, sans-serif;
   font-size: 14px;
 }
@@ -30,9 +30,10 @@ body {
   justify-content: space-between;
   gap: 24px;
   min-width: 1180px;
-  padding: 18px 20px;
-  border-bottom: 2px solid #1f2933;
+  padding: 18px 24px;
+  border-radius: 0 0 22px 22px;
   background: #ffffff;
+  box-shadow: 0 8px 22px rgba(20, 30, 50, 0.07);
 }
 
 h1 {
@@ -229,12 +230,47 @@ main {
   font-weight: 800;
 }
 
+.link-form-heading {
+  grid-column: 1 / -1;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+.existing-data-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+
+.existing-data-row .field-year select {
+  width: 130px;
+}
+
+.existing-data-row .field-month select {
+  width: 90px;
+}
+
+.existing-data-url {
+  grid-column: 1 / -1;
+}
+
 .link-form input {
   width: 100%;
   min-height: 38px;
   padding: 0 10px;
   border: 1px solid #bcc7d3;
   border-radius: 6px;
+}
+
+.link-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #bcc7d3;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
 }
 
 .link-status {
@@ -525,8 +561,16 @@ main {
 }
 
 .sheet-section {
-  border-bottom: 5px solid var(--line-dark);
-  padding: 10px 8px 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.dashboard-group-body > .sheet-section:first-child,
+.dashboard-panel > .sheet-section:first-child {
+  margin-top: 20px;
 }
 
 .dashboard-tabs {
@@ -535,33 +579,39 @@ main {
   z-index: 4;
   display: flex;
   align-items: stretch;
-  gap: 0;
-  border-bottom: 5px solid var(--line-dark);
-  background: #ffffff;
+  gap: 6px;
+  padding: 8px 20px 0;
+  background: #f2f4f7;
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 10px 20px rgba(20, 30, 50, 0.06);
 }
 
 .dashboard-tab {
   min-width: 180px;
-  min-height: 58px;
+  min-height: 50px;
   border: 0;
-  border-right: 1px solid #d8e0ea;
-  border-radius: 0;
-  background: #ffffff;
-  color: var(--blue);
+  border-radius: 14px 14px 0 0;
+  background: transparent;
+  color: var(--muted);
   font-size: 22px;
   font-family: "Malgun Gothic", "Segoe UI", Arial, sans-serif;
   font-weight: 900;
   text-shadow: 0 0 0 currentColor;
 }
 
-.dashboard-tab:hover,
+.dashboard-tab:hover {
+  color: var(--blue);
+}
+
 .dashboard-tab.active {
-  color: #ffffff;
-  background: var(--blue);
+  color: var(--blue);
+  background: #ffffff;
+  box-shadow: 0 -2px 0 var(--blue) inset;
 }
 
 .dashboard-panel {
   display: none;
+  padding: 0 20px;
 }
 
 .dashboard-panel.active {
@@ -1012,6 +1062,11 @@ main {
   font-size: 11.5px;
 }
 
+.defect-desc[contenteditable="true"] {
+  outline: none;
+  caret-color: transparent;
+}
+
 .defect-color-toolbar {
   position: fixed;
   display: none;
@@ -1061,9 +1116,9 @@ main {
 }
 
 .weekly-detail-panel h3 {
-  margin: 4px 2px 2px;
-  font-size: 22px;
-  color: #111827;
+  margin: 4px 2px 14px;
+  font-size: 21px;
+  color: var(--blue);
 }
 
 .weekly-detail-panel h3 span {
@@ -1075,14 +1130,13 @@ main {
 
 .detail-export-link {
   margin-left: 10px;
-  min-height: 26px;
-  padding: 0 10px;
-  border: 1px solid #b8c9df;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
   background: #ffffff;
-  color: var(--blue);
-  font-size: 13px;
-  font-weight: 900;
+  color: #4b5563;
+  font-size: 12.5px;
+  font-weight: 800;
   cursor: pointer;
   vertical-align: middle;
 }
@@ -1483,10 +1537,13 @@ main {
 }
 
 .section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   margin: 0 0 14px 0;
   color: var(--blue);
   font-family: "Malgun Gothic", "Segoe UI", Arial, sans-serif;
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 900;
   text-shadow: 0 0 0 currentColor;
 }
@@ -1509,11 +1566,9 @@ main {
   align-items: center;
   gap: 6px;
   margin: 0 0 14px 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  color: var(--blue);
   font-family: "Malgun Gothic", "Segoe UI", Arial, sans-serif;
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 900;
   line-height: 1.25;
   text-shadow: 0 0 0 currentColor;
@@ -1545,6 +1600,22 @@ main {
   background: #ffffff;
   color: #111827;
   font: inherit;
+}
+
+.section-controls input[type="date"] {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d6dde7;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  cursor: pointer;
+}
+
+.weekly-receipt-tilde {
+  font-weight: 800;
+  color: #687482;
 }
 
 .daily-receipt-cards {
@@ -1817,10 +1888,16 @@ main {
   align-items: center;
   gap: 12px;
   margin: 0 0 26px;
-  color: var(--blue);
   font-family: "Malgun Gothic", "Segoe UI", Arial, sans-serif;
-  font-size: 22px;
   font-weight: 900;
+}
+
+.detail-title-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--blue);
+  font-size: 21px;
   text-shadow: 0 0 0 currentColor;
 }
 

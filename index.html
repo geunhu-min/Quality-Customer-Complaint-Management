@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>품질 고객클레임 대시보드</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -18,7 +19,7 @@
           <span id="syncLabel">동기화 확인중</span>
         </span>
         <button id="openDataInsert" class="insert-button" type="button">데이터 삽입</button>
-        <button id="toggleFileCards" class="insert-button secondary" type="button">데이터 삭제</button>
+        <button id="toggleFileCards" class="insert-button secondary" type="button">데이터 관리</button>
         <input id="dashboardFile" type="file" accept=".json" hidden />
         <input id="imageFiles" type="file" accept="image/*,video/*" multiple hidden />
       </div>
@@ -41,7 +42,7 @@
 
           <section class="sheet-section daily-receipt-section">
             <div class="section-title-row">
-              <div class="section-title blue">일접수현황</div>
+              <div class="section-title">일접수현황</div>
               <div class="section-controls" aria-label="일접수현황 기간 선택">
                 <label>년도 <select id="dailyYearSelect" autocomplete="off"></select></label>
                 <label>월 <select id="dailyMonthSelect" autocomplete="off"></select></label>
@@ -53,7 +54,7 @@
 
           <section class="sheet-section">
             <div class="section-title">
-              <span class="blue">고객클레임 접수현황</span>
+              <span>고객클레임 접수현황</span>
             </div>
             <div class="table-wrap">
               <table id="summaryTable" class="dashboard-table summary-table"></table>
@@ -62,7 +63,7 @@
 
           <section class="sheet-section detail-section">
             <div class="detail-title">
-              <span>고객클레임 일일접수 내역</span>
+              <span class="detail-title-text">고객클레임 일일접수 내역</span>
               <select id="detailDateSelect" aria-label="세부내역 날짜 선택" autocomplete="off"></select>
             </div>
             <div class="table-wrap">
@@ -71,12 +72,18 @@
           </section>
 
           <section class="sheet-section quality-cost-section">
-            <button id="toggleCostSection" class="section-title-toggle blue" type="button" aria-expanded="false">> 고객클레임 주간접수 내역</button>
+            <div class="section-title-row">
+              <div class="section-title">고객클레임 주간접수 내역</div>
+              <button id="toggleCostSection" class="detail-export-link" type="button" aria-expanded="false">상세</button>
+            </div>
             <div id="qualityCostBody" class="table-wrap is-hidden">
               <div class="section-controls" aria-label="고객클레임 주간접수 내역 기간 선택">
                 <label>년도 <select id="weeklyReceiptYearSelect" autocomplete="off"></select></label>
-                <label>월 <select id="weeklyReceiptMonthSelect" autocomplete="off"></select></label>
-                <label>주 <select id="weeklyReceiptWeekSelect" autocomplete="off"></select></label>
+                <label>날짜선택
+                  <input id="weeklyReceiptStartDateInput" type="date" autocomplete="off" />
+                  <span class="weekly-receipt-tilde">~</span>
+                  <input id="weeklyReceiptEndDateInput" type="date" autocomplete="off" />
+                </label>
                 <label>포장처 <select id="weeklyReceiptPackagingSelect" autocomplete="off"></select></label>
               </div>
               <table id="weeklyReceiptDetailTable" class="dashboard-table detail-table"></table>
@@ -88,7 +95,7 @@
       <section id="weeklyDashboardPanel" class="dashboard-panel" data-dashboard-panel="weekly">
         <section class="sheet-section weekly-placeholder">
           <div class="section-title-row">
-            <div class="section-title blue">주하자현황</div>
+            <div class="section-title">주하자현황</div>
             <div class="section-controls" aria-label="주하자현황 기간 선택">
               <label>년도 <select id="weeklyYearSelect" autocomplete="off"></select></label>
               <label>월 <select id="weeklyMonthSelect" autocomplete="off"></select></label>
@@ -101,7 +108,7 @@
       <section id="monthDefectDashboardPanel" class="dashboard-panel" data-dashboard-panel="monthDefect">
         <section class="sheet-section weekly-placeholder">
           <div class="section-title-row">
-            <div class="section-title blue">월하자현황</div>
+            <div class="section-title">월하자현황</div>
             <div class="section-controls" aria-label="월하자현황 기간 선택">
               <label>년도 <select id="monthlyYearSelect" autocomplete="off"></select></label>
             </div>
@@ -134,13 +141,26 @@
           <button id="closeDataInsert" type="button">닫기</button>
         </div>
         <div class="link-form">
-          <label>
-            <span>1. 기존데이터</span>
-            <input id="existingDataLink" type="url" placeholder="스프레드시트 링크를 붙여넣기" />
-            <small id="existingDataLinkStatus" class="link-status"></small>
+          <div class="link-form-heading">1. 기존데이터</div>
+          <div class="existing-data-row">
+            <label class="field-year">
+              <span>연도</span>
+              <select id="existingDataPublishYear" autocomplete="off">
+                <option value="2025">2025년</option>
+                <option value="2026" selected>2026년</option>
+                <option value="2027">2027년</option>
+              </select>
+            </label>
+            <button id="loadExistingDataPublish" type="button">넣기</button>
+            <button id="clearExistingDataPublishLink" type="button">지우기</button>
+          </div>
+          <label class="existing-data-url">
+            <span>웹에 게시 주소 (CSV, 여러 시트면 1월부터 순서대로 한 줄에 하나씩)</span>
+            <textarea id="existingDataPublishLink" rows="3" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=111&single=true&output=csv
+https://docs.google.com/spreadsheets/d/e/.../pub?gid=222&single=true&output=csv
+(1월, 2월, 3월... 순서대로 한 줄에 하나씩 붙여넣기)"></textarea>
+            <small id="existingDataPublishLinkStatus" class="link-status"></small>
           </label>
-          <button id="loadExistingData" type="button">넣기</button>
-          <button id="clearExistingDataLink" type="button">지우기</button>
 
           <label>
             <span>2. 접수내역 (금월데이터)</span>
@@ -150,13 +170,14 @@
           <button id="loadReceiptData" type="button">넣기</button>
           <button id="clearReceiptDataLink" type="button">지우기</button>
 
+          <div class="link-form-heading">3. 접수내역 (누적데이터)</div>
           <label>
-            <span>3. 접수내역 (누적데이터)</span>
-            <input id="receiptHistoryDataLink" type="url" placeholder="스프레드시트 링크를 붙여넣기" />
-            <small id="receiptHistoryDataLinkStatus" class="link-status"></small>
+            <span>웹에 게시 주소 (CSV)</span>
+            <input id="receiptHistoryPublishLink" type="url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+            <small id="receiptHistoryPublishLinkStatus" class="link-status"></small>
           </label>
-          <button id="loadReceiptHistoryData" type="button">넣기</button>
-          <button id="clearReceiptHistoryDataLink" type="button">지우기</button>
+          <button id="loadReceiptHistoryPublish" type="button">넣기</button>
+          <button id="clearReceiptHistoryPublishLink" type="button">지우기</button>
         </div>
         <div id="linkedDataList" class="linked-data-list"></div>
       </div>
@@ -164,8 +185,8 @@
 
     <script src="./xlsx.full.min.js"></script>
     <script>window.__USE_EXTERNAL_DAILY_STABLE = true;</script>
-    <script src="./app.js?v=20260703-v23"></script>
-    <script src="./daily-stable-v23.js?v=20260706-v26"></script>
+    <script src="./app.js?v=20260709-v27"></script>
+    <script src="./daily-stable-v23.js?v=20260709-v27"></script>
     <script>
       (function () {
         if (location.hostname !== "127.0.0.1" && location.hostname !== "localhost") return;
