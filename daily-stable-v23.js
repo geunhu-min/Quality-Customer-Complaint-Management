@@ -632,7 +632,7 @@
       return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
-    html += '<span class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" title="\uC0AC\uC9C4/\uC601\uC0C1 \uCCA8\uBD80 (\uD074\uB9AD \uD6C4 Ctrl+V \uB610\uB294 \uB04C\uC5B4\uB193\uAE30)">+<input type="file" accept="image/*,video/*" multiple></span>';
+    html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">\uB9C1\uD06C\uCD94\uAC00</button>';
     return html;
   }
   function detailTableMarkup(rows) {
@@ -1170,35 +1170,28 @@
     activeAttachKey = key || null;
     if (zoneEl) zoneEl.classList.add("active-target");
   }
-  async function attachFilesToKey(files, key) {
-    if (!files || !files.length || !key) return;
-    var imageFileToDataUrl = window.imageFileToDataUrl;
-    var fileToDataUrl = window.fileToDataUrl;
+  function attachLinkToKey(url, key) {
+    if (!url || !key) return;
     var addUploadEntry = window.addUploadEntry;
     var rebuildFromSelection = window.rebuildFromSelection;
     var renderAll = window.renderAll;
     var saveDashboardState = window.saveDashboardState;
-    if (!addUploadEntry || !rebuildFromSelection || !renderAll || !imageFileToDataUrl || !fileToDataUrl) return;
-    var images = [];
-    for (var i = 0; i < files.length; i++) {
-      var file = files[i];
-      var isVideo = file.type && file.type.indexOf("video/") === 0;
-      try {
-        var dataUrl = await (isVideo ? fileToDataUrl(file) : imageFileToDataUrl(file));
-        images.push({
-          id: (window.createImageId ? window.createImageId() : ("img_" + Date.now() + "_" + i)),
-          name: "ATTACH_" + key + "_" + Date.now() + "_" + i,
-          url: dataUrl,
-          dataUrl: dataUrl,
-          mediaType: isVideo ? "video" : "image",
-          mimeType: file.type || "",
-          imageNo: 0,
-          imageDate: ""
-        });
-      } catch (err) {}
-    }
-    if (!images.length) return;
-    addUploadEntry({ kind: "images", fileName: images.length + "개 첨부", label: "직접첨부", rows: [], images: images, selected: true, excluded: 0 });
+    var createImageId = window.createImageId;
+    var resolveImageLinkUrl = window.resolveImageLinkUrl;
+    if (!addUploadEntry || !rebuildFromSelection || !renderAll) return;
+    var resolved = resolveImageLinkUrl ? resolveImageLinkUrl(url) : url;
+    var image = {
+      id: createImageId ? createImageId() : ("img_" + Date.now()),
+      name: "ATTACH_" + key + "_" + Date.now() + "_0",
+      url: resolved,
+      dataUrl: resolved,
+      mediaType: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved) ? "video" : "image",
+      mimeType: "",
+      imageNo: 0,
+      imageDate: "",
+      driveSourced: true
+    };
+    addUploadEntry({ kind: "images", fileName: "링크 첨부", label: "직접첨부", rows: [], images: [image], selected: true, excluded: 0 });
     rebuildFromSelection();
     renderAll();
     if (saveDashboardState) saveDashboardState();
@@ -1308,12 +1301,10 @@
     document.addEventListener("click", function (event) {
       var attachZone = event.target.closest && event.target.closest(".detail-thumb-attach");
       if (attachZone) {
-        var isInput = event.target.tagName === "INPUT";
+        event.preventDefault();
         setActiveAttachKey(attachZone.getAttribute("data-attach-key"), attachZone);
-        if (!isInput) {
-          event.preventDefault();
-          attachZone.querySelector("input[type=file]").click();
-        }
+        var raw = window.prompt("이미지/영상 링크를 붙여넣으세요 (구글 드라이브 공유 링크 등)");
+        if (raw && raw.trim()) attachLinkToKey(raw.trim(), attachZone.getAttribute("data-attach-key"));
         return;
       }
       var wrap = event.target.closest && event.target.closest(".detail-thumb-wrap");
@@ -1322,37 +1313,13 @@
         openAttachLightbox(wrap);
       }
     }, true);
-    document.addEventListener("change", function (event) {
-      var attachZone = event.target.closest && event.target.closest(".detail-thumb-attach");
-      if (!attachZone || event.target.tagName !== "INPUT") return;
-      var files = Array.prototype.slice.call(event.target.files || []);
-      var key = attachZone.getAttribute("data-attach-key");
-      attachFilesToKey(files, key);
-      event.target.value = "";
-    }, true);
-    document.addEventListener("dragover", function (event) {
-      var attachZone = event.target.closest && event.target.closest(".detail-thumb-attach");
-      if (!attachZone) return;
-      event.preventDefault();
-      setActiveAttachKey(attachZone.getAttribute("data-attach-key"), attachZone);
-    });
-    document.addEventListener("drop", function (event) {
-      var attachZone = event.target.closest && event.target.closest(".detail-thumb-attach");
-      if (!attachZone) return;
-      event.preventDefault();
-      setActiveAttachKey(attachZone.getAttribute("data-attach-key"), attachZone);
-      var files = Array.prototype.slice.call((event.dataTransfer && event.dataTransfer.files) || []);
-      attachFilesToKey(files, attachZone.getAttribute("data-attach-key"));
-    });
     document.addEventListener("paste", function (event) {
       if (!activeAttachKey) return;
-      var items = [].slice.call((event.clipboardData && event.clipboardData.items) || []).filter(function (it) {
-        return it.type && (it.type.indexOf("image/") === 0 || it.type.indexOf("video/") === 0);
-      });
-      if (!items.length) return;
-      event.preventDefault();
-      var files = items.map(function (it) { return it.getAsFile(); }).filter(Boolean);
-      attachFilesToKey(files, activeAttachKey);
+      var text = ((event.clipboardData && event.clipboardData.getData("text")) || "").trim();
+      if (/^https?:\/\/\S+$/.test(text)) {
+        event.preventDefault();
+        attachLinkToKey(text, activeAttachKey);
+      }
     });
   }
   document.addEventListener("DOMContentLoaded", function () {

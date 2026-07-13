@@ -5579,6 +5579,12 @@ function registerDetailImage(imageNo) {
   document.getElementById("imageFiles")?.click();
 }
 
+function resolveImageLinkUrl(raw) {
+  const idMatch = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || raw.match(/[?&]id=([a-zA-Z0-9_-]+)/) || raw.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=s1600`;
+  return raw;
+}
+
 function openDetailImage(index) {
   const image = state.images[index];
   if (!image?.url) return;
@@ -5681,14 +5687,23 @@ function saveDashboardState(force = false) {
     activeUploadLabel: state.uploads.find((entry) => entry.id === activeUploadId)?.label || "",
     groups: [...linkedGroups.values()],
     viewSnapshot: createViewSnapshot(),
-    images: state.images.filter((image) => !image.driveSourced).map((image) => ({
+    images: state.images.map((image) => image.driveSourced ? {
+      id: image.id,
+      name: image.name,
+      mediaType: image.mediaType || "image",
+      mimeType: image.mimeType || "",
+      imageNo: image.imageNo,
+      imageDate: image.imageDate || "",
+      driveSourced: true,
+      dataUrl: image.dataUrl
+    } : {
       id: image.id,
       name: image.name,
       mediaType: image.mediaType || "image",
       mimeType: image.mimeType || "",
       imageNo: image.imageNo,
       imageDate: image.imageDate || ""
-    }))
+    })
   };
   savedLinkGroupsCache = payload.groups;
   saveImagesToDb(state.images.filter((image) => !image.driveSourced)).catch(() => {});
@@ -5887,7 +5902,9 @@ async function restoreSavedDashboardState() {
     });
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
-    restoreSavedImages(dbImages.length ? dbImages : payload.images || []);
+    const linkImages = (payload.images || []).filter((image) => image.driveSourced);
+    const localImages = dbImages.length ? dbImages : (payload.images || []).filter((image) => !image.driveSourced);
+    restoreSavedImages(localImages.concat(linkImages));
     activeUploadId = state.uploads.find((entry) => entry.label === payload.activeUploadLabel)?.id || state.uploads[0]?.id || "sample";
     window.__lastRestoreHadFailures = failedGroups.length > 0;
     renderAll(failedGroups.length
@@ -5927,7 +5944,7 @@ function exportSeedSavedLinkGroups() {
 
 function restoreSavedImages(images) {
   const restored = (images || [])
-    .filter((image) => image?.dataUrl && !image.driveSourced && !/googleusercontent\.com/.test(image.dataUrl))
+    .filter((image) => image?.dataUrl)
     .map((image, index) => ({
       id: image.id || createImageId(),
       name: image.name || "저장 이미지",
@@ -5936,7 +5953,8 @@ function restoreSavedImages(images) {
       mediaType: image.mediaType || (String(image.mimeType || "").startsWith("video/") ? "video" : "image"),
       mimeType: image.mimeType || "",
       imageNo: image.imageNo || index + 1,
-      imageDate: image.imageDate || ""
+      imageDate: image.imageDate || "",
+      driveSourced: !!image.driveSourced
     }));
   if (!restored.length) return;
   addUploadEntry({
