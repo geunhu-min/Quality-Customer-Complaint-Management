@@ -1952,10 +1952,6 @@ main {
   overflow-wrap: anywhere;
 }
 
-.detail-table .image-cell {
-  width: 130px;
-}
-
 .detail-table .image-cell:has(.detail-thumb),
 .detail-table .image-cell:has(.detail-thumb-attach) {
   display: flex;
