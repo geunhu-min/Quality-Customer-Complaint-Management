@@ -1881,7 +1881,7 @@ main {
 }
 
 .detail-table .detail-col-defect {
-  width: 280px;
+  width: auto;
 }
 
 .detail-table .detail-col-image {
