@@ -1841,52 +1841,51 @@ main {
 .detail-table {
   table-layout: fixed;
   font-size: 15px;
-  width: auto;
   min-width: 1190px;
 }
 
 .detail-table .detail-col-idx {
-  width: 32px;
+  width: 2.7%;
 }
 
 .detail-table .detail-col-category {
-  width: 90px;
+  width: 7.58%;
 }
 
 .detail-table .detail-col-type {
-  width: 80px;
+  width: 6.74%;
 }
 
 .detail-table .detail-col-brand {
-  width: 90px;
+  width: 7.58%;
 }
 
 .detail-table .detail-col-source {
-  width: 100px;
+  width: 8.42%;
 }
 
 .detail-table .detail-col-code {
-  width: 130px;
+  width: 10.95%;
 }
 
 .detail-table .detail-col-color {
-  width: 70px;
+  width: 5.9%;
 }
 
 .detail-table .detail-col-lot {
-  width: 85px;
+  width: 7.16%;
 }
 
 .detail-table .detail-col-supplier {
-  width: 100px;
+  width: 8.42%;
 }
 
 .detail-table .detail-col-defect {
-  width: 280px;
+  width: 23.59%;
 }
 
 .detail-table .detail-col-image {
-  width: 130px;
+  width: 10.95%;
 }
 
 .detail-table th,
