@@ -1963,8 +1963,8 @@ main {
 }
 
 .detail-thumb {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   border: 1px solid #d8e0ea;
   border-radius: 4px;
   object-fit: cover;
@@ -1972,8 +1972,8 @@ main {
 
 .detail-thumb-more {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   align-items: center;
   justify-content: center;
   border: 1px solid #d8e0ea;
@@ -1996,7 +1996,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 15px;
   color: #ffffff;
   background: rgba(0, 0, 0, 0.32);
   border-radius: 4px;
@@ -2005,14 +2005,14 @@ main {
 
 .detail-thumb-video {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   align-items: center;
   justify-content: center;
   border: 1px solid #d8e0ea;
   border-radius: 4px;
   background: linear-gradient(135deg, #ffd9c2, #ffb894);
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .detail-thumb-attach {
