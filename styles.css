@@ -1841,7 +1841,7 @@ main {
 .detail-table {
   table-layout: fixed;
   font-size: 15px;
-  min-width: 1210px;
+  min-width: 1190px;
 }
 
 .detail-table .detail-col-idx {
