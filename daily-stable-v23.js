@@ -1220,12 +1220,13 @@
     var driveViewUrlFromShareUrl = window.driveViewUrlFromShareUrl;
     if (!addUploadEntry || !rebuildFromSelection || !renderAll) return;
     var resolved = resolveImageLinkUrl ? resolveImageLinkUrl(url) : url;
+    var isVideoKind = /영상|video/i.test((meta && meta.kind) || "") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved);
     var image = {
       id: createImageId ? createImageId() : ("img_" + Date.now()),
       name: "ATTACH_" + key + "_" + Date.now() + "_0",
       url: resolved,
       dataUrl: resolved,
-      mediaType: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved) ? "video" : "image",
+      mediaType: isVideoKind ? "video" : "image",
       mimeType: "",
       imageNo: 0,
       imageDate: "",
@@ -1354,6 +1355,65 @@
       }
     });
   }
+  function ensureLinkAttachModal() {
+    var el = document.getElementById("dailyLinkAttachModal");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "dailyLinkAttachModal";
+    el.className = "modal";
+    el.innerHTML =
+      '<div class="modal-dialog" style="width:min(420px,92vw)">' +
+        '<div class="modal-head"><h2 style="font-size:16px">이미지/영상 링크 추가</h2><button type="button" class="link-attach-close">닫기</button></div>' +
+        '<label style="display:grid;gap:6px;margin-bottom:14px">' +
+          '<span>링크 (구글 드라이브 공유 링크 등)</span>' +
+          '<input type="text" class="link-attach-input" placeholder="https://drive.google.com/...">' +
+        '</label>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;cursor:pointer">' +
+          '<input type="checkbox" class="link-attach-video-check">' +
+          '<span>영상입니다</span>' +
+        '</label>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px">' +
+          '<button type="button" class="link-attach-cancel">취소</button>' +
+          '<button type="button" class="link-attach-confirm insert-button">확인</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    function close() { el.classList.remove("open"); linkAttachZone = null; }
+    function confirm() {
+      var input = el.querySelector(".link-attach-input");
+      var isVideo = el.querySelector(".link-attach-video-check").checked;
+      var raw = (input.value || "").trim();
+      var zone = linkAttachZone;
+      close();
+      if (!raw || !zone) return;
+      attachLinkToKey(raw, zone.getAttribute("data-attach-key"), {
+        receiptNo: zone.getAttribute("data-receipt-no") || "",
+        seq: zone.getAttribute("data-seq") || "",
+        code: zone.getAttribute("data-code") || "",
+        kind: isVideo ? "영상" : "사진"
+      });
+    }
+    el.addEventListener("click", function (event) { if (event.target === el) close(); });
+    el.querySelector(".link-attach-close").addEventListener("click", close);
+    el.querySelector(".link-attach-cancel").addEventListener("click", close);
+    el.querySelector(".link-attach-confirm").addEventListener("click", confirm);
+    el.querySelector(".link-attach-input").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") confirm();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (el.classList.contains("open") && event.key === "Escape") close();
+    });
+    return el;
+  }
+  var linkAttachZone = null;
+  function openLinkAttachModal(zoneEl) {
+    var el = ensureLinkAttachModal();
+    linkAttachZone = zoneEl;
+    el.querySelector(".link-attach-input").value = "";
+    el.querySelector(".link-attach-video-check").checked = false;
+    el.classList.add("open");
+    setTimeout(function () { el.querySelector(".link-attach-input").focus(); }, 0);
+  }
   function installImageClickOpen() {
     if (window.__dailyStableImageClickInstalled) return;
     window.__dailyStableImageClickInstalled = true;
@@ -1362,14 +1422,7 @@
       if (attachZone) {
         event.preventDefault();
         setActiveAttachKey(attachZone.getAttribute("data-attach-key"), attachZone);
-        var raw = window.prompt("이미지/영상 링크를 붙여넣으세요 (구글 드라이브 공유 링크 등)");
-        if (raw && raw.trim()) {
-          attachLinkToKey(raw.trim(), attachZone.getAttribute("data-attach-key"), {
-            receiptNo: attachZone.getAttribute("data-receipt-no") || "",
-            seq: attachZone.getAttribute("data-seq") || "",
-            code: attachZone.getAttribute("data-code") || ""
-          });
-        }
+        openLinkAttachModal(attachZone);
         return;
       }
       var wrap = event.target.closest && event.target.closest(".detail-thumb-wrap");

@@ -270,6 +270,26 @@ main {
   border-radius: 6px;
 }
 
+.link-attach-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #bcc7d3;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.link-attach-cancel,
+.link-attach-close {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .link-form textarea {
   width: 100%;
   padding: 8px 10px;
