@@ -634,7 +634,7 @@
     if (/lh3\.googleusercontent\.com\/d\//.test(base)) return base.replace(/=s\d+$/, "=s900");
     return img.dataUrl || base;
   }
-  function imageCellMarkup(images, attachKey) {
+  function imageCellMarkup(images, attachKey, row) {
     var shown = images.slice(0, IMAGE_CELL_MAX);
     var extra = images.length - shown.length;
     var html = shown.map(function (img) {
@@ -649,7 +649,7 @@
       return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
-    html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">\uB9C1\uD06C\uCD94\uAC00</button>';
+    html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">\uB9C1\uD06C\uCD94\uAC00</button>';
     return html;
   }
   function detailTableMarkup(rows) {
@@ -676,7 +676,7 @@
         });
         images = sheetImages.concat(images);
       }
-      return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey) + '</td></tr>';
+      return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey, r) + '</td></tr>';
     }).join("") + '</tbody>';
   }
   function renderDetails(rows) {
@@ -1209,7 +1209,7 @@
     activeAttachKey = key || null;
     if (zoneEl) zoneEl.classList.add("active-target");
   }
-  function attachLinkToKey(url, key) {
+  function attachLinkToKey(url, key, meta) {
     if (!url || !key) return;
     var addUploadEntry = window.addUploadEntry;
     var rebuildFromSelection = window.rebuildFromSelection;
@@ -1236,6 +1236,13 @@
     rebuildFromSelection();
     renderAll();
     if (saveDashboardState) saveDashboardState();
+    var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
+    if (sheetSyncUrl && meta && meta.receiptNo) {
+      fetch(sheetSyncUrl, {
+        method: "POST",
+        body: JSON.stringify({ receiptNo: meta.receiptNo, seq: meta.seq || "", code: meta.code || "", link: url, kind: meta.kind || "" })
+      }).catch(function () {});
+    }
   }
   function deleteAttachedImage(imageId) {
     var st = sharedState();
@@ -1345,7 +1352,13 @@
         event.preventDefault();
         setActiveAttachKey(attachZone.getAttribute("data-attach-key"), attachZone);
         var raw = window.prompt("이미지/영상 링크를 붙여넣으세요 (구글 드라이브 공유 링크 등)");
-        if (raw && raw.trim()) attachLinkToKey(raw.trim(), attachZone.getAttribute("data-attach-key"));
+        if (raw && raw.trim()) {
+          attachLinkToKey(raw.trim(), attachZone.getAttribute("data-attach-key"), {
+            receiptNo: attachZone.getAttribute("data-receipt-no") || "",
+            seq: attachZone.getAttribute("data-seq") || "",
+            code: attachZone.getAttribute("data-code") || ""
+          });
+        }
         return;
       }
       var wrap = event.target.closest && event.target.closest(".detail-thumb-wrap");

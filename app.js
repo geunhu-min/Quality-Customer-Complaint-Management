@@ -368,6 +368,9 @@ const SEED_ATTACHED_IMAGES = [
     "driveViewUrl": "https://drive.google.com/file/d/1a1JPs3apUZD7YA9iS_E_f7jEy0lRAYQx/view"
   }
 ];
+// "링크추가"로 넣은 사진/영상 링크를 접수내역 시트(S열/T열)에도 자동으로 써주는 앱스 스크립트 웹앱 주소.
+// 앱스 스크립트를 배포한 뒤 그 주소를 여기에 붙여넣으면, 이후로는 링크추가할 때마다 시트에도 자동 반영됩니다.
+var PHOTO_LINK_SHEET_SYNC_URL = "https://script.google.com/macros/s/AKfycbzRwzbe3xhti31H-TqNkMUH9Gf87rmpBPu6-gas_TDMUUqzPVvnV4urMOirr90lwSBZIg/exec";
 const monthlyStatusSnapshotKey = "qualityClaimDashboard.monthlyStatusSnapshot.v1";
 const imageDbName = "qualityClaimDashboard.images.v1";
 const imageStoreName = "images";
