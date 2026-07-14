@@ -666,9 +666,15 @@
       if (r.photoLink) {
         var resolveFn = window.resolveImageLinkUrl;
         var embedFn = window.driveViewUrlFromShareUrl;
-        var resolvedPhoto = resolveFn ? resolveFn(r.photoLink) : r.photoLink;
-        var sheetMediaType = /영상|video/i.test(r.photoKind || "") ? "video" : "image";
-        images = [{ id: "sheet_" + attachKey, name: "SHEET_" + attachKey, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(r.photoLink) : "" }].concat(images);
+        var links = r.photoLink.split(",").map(function (v) { return v.trim(); }).filter(Boolean);
+        var kinds = (r.photoKind || "").split(",").map(function (v) { return v.trim(); });
+        var sheetImages = links.map(function (link, linkIndex) {
+          var resolvedPhoto = resolveFn ? resolveFn(link) : link;
+          var kind = kinds[linkIndex] || "";
+          var sheetMediaType = /영상|video/i.test(kind) ? "video" : "image";
+          return { id: "sheet_" + attachKey + "_" + linkIndex, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "" };
+        });
+        images = sheetImages.concat(images);
       }
       return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey) + '</td></tr>';
     }).join("") + '</tbody>';
