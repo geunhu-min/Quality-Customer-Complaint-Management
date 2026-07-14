@@ -1893,6 +1893,7 @@ main {
   height: 108px;
   min-height: 108px;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .detail-table th {
