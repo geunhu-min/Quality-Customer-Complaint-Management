@@ -649,7 +649,7 @@
       return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
-    html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">\uB9C1\uD06C\uCD94\uAC00</button>';
+    html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">추가</button>';
     return html;
   }
   function detailTableMarkup(rows) {
