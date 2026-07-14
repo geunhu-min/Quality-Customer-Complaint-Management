@@ -1841,51 +1841,51 @@ main {
 .detail-table {
   table-layout: fixed;
   font-size: 15px;
-  min-width: 1660px;
+  min-width: 1210px;
 }
 
 .detail-table .detail-col-idx {
-  width: 38px;
+  width: 32px;
 }
 
 .detail-table .detail-col-category {
-  width: 130px;
+  width: 90px;
 }
 
 .detail-table .detail-col-type {
-  width: 115px;
+  width: 80px;
 }
 
 .detail-table .detail-col-brand {
-  width: 130px;
+  width: 90px;
 }
 
 .detail-table .detail-col-source {
-  width: 125px;
-}
-
-.detail-table .detail-col-code {
-  width: 170px;
-}
-
-.detail-table .detail-col-color {
   width: 100px;
 }
 
+.detail-table .detail-col-code {
+  width: 130px;
+}
+
+.detail-table .detail-col-color {
+  width: 70px;
+}
+
 .detail-table .detail-col-lot {
-  width: 105px;
+  width: 85px;
 }
 
 .detail-table .detail-col-supplier {
-  width: 140px;
+  width: 100px;
 }
 
 .detail-table .detail-col-defect {
-  width: 440px;
+  width: 280px;
 }
 
 .detail-table .detail-col-image {
-  width: 160px;
+  width: 130px;
 }
 
 .detail-table th,
@@ -1953,7 +1953,7 @@ main {
 }
 
 .detail-table .image-cell {
-  width: 190px;
+  width: 130px;
 }
 
 .detail-table .image-cell:has(.detail-thumb),
