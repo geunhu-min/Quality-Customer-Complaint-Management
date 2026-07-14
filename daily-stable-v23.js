@@ -743,18 +743,30 @@
     if (y) y.value = String(lastWeek.year);
     scheduleStableRender();
   };
-  var PACKAGING_OPTIONS = ["4라인", "7라인"];
+  var PACKAGING_OPTIONS = ["1라인", "3라인", "4라인", "7라인"];
   var PACKAGING_OTHER_VALUE = "__other__";
+  var PACKAGING_COMBINED_VALUE = "__combined_134__";
+  var PACKAGING_COMBINED_LABEL = "1,3,4라인";
+  var PACKAGING_COMBINED_SET = ["1라인", "3라인", "4라인"];
+  function weeklyReceiptSourceLabel(source) {
+    var s = txt(source);
+    if (/^1\s*라인/.test(s)) return "1라인";
+    if (/^3\s*라인/.test(s)) return "3라인";
+    if (/^4\s*라인/.test(s)) return "4라인";
+    if (/^7\s*라인/.test(s)) return "7라인";
+    return "기타";
+  }
   function ensurePackagingSelectOptions() {
     var sel = document.getElementById("weeklyReceiptPackagingSelect");
     if (!sel) return;
-    if (sel.dataset.v23Packaging === "fixed") return;
+    if (sel.dataset.v23Packaging === "source") return;
     var old = sel.value;
     sel.innerHTML = '<option value="">전체</option>' +
       PACKAGING_OPTIONS.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join("") +
-      '<option value="' + PACKAGING_OTHER_VALUE + '">기타</option>';
-    sel.dataset.v23Packaging = "fixed";
-    sel.value = (PACKAGING_OPTIONS.indexOf(old) >= 0 || old === PACKAGING_OTHER_VALUE) ? old : "";
+      '<option value="' + PACKAGING_OTHER_VALUE + '">기타</option>' +
+      '<option value="' + PACKAGING_COMBINED_VALUE + '">' + esc(PACKAGING_COMBINED_LABEL) + '</option>';
+    sel.dataset.v23Packaging = "source";
+    sel.value = (PACKAGING_OPTIONS.indexOf(old) >= 0 || old === PACKAGING_OTHER_VALUE || old === PACKAGING_COMBINED_VALUE) ? old : "";
   }
   var lastWeeklyReceiptRows = [];
   var lastWeeklyReceiptPopupTitle = "";
@@ -768,12 +780,14 @@
     var packagingFilter = packagingSel ? packagingSel.value : "";
     var rows = receiptItems.filter(function (r) { return r.dateKey >= s.startKey && r.dateKey <= s.endKey; });
     rows = packagingFilter === PACKAGING_OTHER_VALUE
-      ? rows.filter(function (r) { return PACKAGING_OPTIONS.indexOf(r.packaging) < 0; })
-      : packagingFilter
-        ? rows.filter(function (r) { return r.packaging === packagingFilter; })
-        : rows;
+      ? rows.filter(function (r) { return weeklyReceiptSourceLabel(r.source) === "기타"; })
+      : packagingFilter === PACKAGING_COMBINED_VALUE
+        ? rows.filter(function (r) { return PACKAGING_COMBINED_SET.indexOf(weeklyReceiptSourceLabel(r.source)) >= 0; })
+        : packagingFilter
+          ? rows.filter(function (r) { return weeklyReceiptSourceLabel(r.source) === packagingFilter; })
+          : rows;
     lastWeeklyReceiptRows = rows;
-    var packagingLabel = packagingFilter === PACKAGING_OTHER_VALUE ? "기타" : (packagingFilter || "전체");
+    var packagingLabel = packagingFilter === PACKAGING_OTHER_VALUE ? "기타" : packagingFilter === PACKAGING_COMBINED_VALUE ? PACKAGING_COMBINED_LABEL : (packagingFilter || "전체");
     lastWeeklyReceiptPopupTitle = s.year + "년 " + formatWeekRangeLabel(s.startKey, s.endKey) + " (" + packagingLabel + ")";
     var html = detailTableMarkup(rows);
     if (html !== lastWeeklyReceiptHtml) {
