@@ -210,7 +210,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1yGX1B34LwzWO8hm40NvZe2kJ9uBXWemt=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1yGX1B34LwzWO8hm40NvZe2kJ9uBXWemt=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1yGX1B34LwzWO8hm40NvZe2kJ9uBXWemt/view"
   },
   {
     "id": "c2dc32ac-09d2-4dd4-bfc7-baaa76d8bda3",
@@ -220,7 +221,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1P3jxxlp_bx8uI1ok0C_7GIX_6HudIueB=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1P3jxxlp_bx8uI1ok0C_7GIX_6HudIueB=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1P3jxxlp_bx8uI1ok0C_7GIX_6HudIueB/view"
   },
   {
     "id": "f64ea5b1-5e60-4be1-8fb7-fa1a287fd3e8",
@@ -230,7 +232,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1hKASFZJFRxjotrl4HNdJuwV-Y5mt0YIL=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1hKASFZJFRxjotrl4HNdJuwV-Y5mt0YIL=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1hKASFZJFRxjotrl4HNdJuwV-Y5mt0YIL/view"
   },
   {
     "id": "3f59f083-30e7-46b8-9ba1-f88b37608612",
@@ -240,7 +243,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1byCoCZb367xyF8tq35vUmUBzx0QPEo6C=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1byCoCZb367xyF8tq35vUmUBzx0QPEo6C=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1byCoCZb367xyF8tq35vUmUBzx0QPEo6C/view"
   },
   {
     "id": "ad56192d-bf51-4684-a85e-540e550bc490",
@@ -250,7 +254,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1mIpMns8fAjuZEshAfLa8a6X2CmbSjRGA=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1mIpMns8fAjuZEshAfLa8a6X2CmbSjRGA=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1mIpMns8fAjuZEshAfLa8a6X2CmbSjRGA/view"
   },
   {
     "id": "76a46183-502b-40d3-b8e6-d0e8762a8b98",
@@ -260,7 +265,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1zR6NZ9zGT4MO0mGOa3bulxg-pG4ugF0B=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1zR6NZ9zGT4MO0mGOa3bulxg-pG4ugF0B=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1zR6NZ9zGT4MO0mGOa3bulxg-pG4ugF0B/view"
   },
   {
     "id": "b0bf955a-71c3-4b1c-a034-d8eb0a843c38",
@@ -270,7 +276,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1lfEmy0xc8ySF8w0uR3DY-f4_-Cyz8SXy=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1lfEmy0xc8ySF8w0uR3DY-f4_-Cyz8SXy=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1lfEmy0xc8ySF8w0uR3DY-f4_-Cyz8SXy/view"
   },
   {
     "id": "41cb7c70-7914-4f9c-953f-6f4a4de64a09",
@@ -280,7 +287,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1ZvMgQ8ZiEUyjSDUQCvu7s24G0PlT9wrL=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1ZvMgQ8ZiEUyjSDUQCvu7s24G0PlT9wrL=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1ZvMgQ8ZiEUyjSDUQCvu7s24G0PlT9wrL/view"
   },
   {
     "id": "99a56f1c-2440-498e-92ee-df1d20aaeb71",
@@ -290,7 +298,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/18fGosECr8urCGWmKN2tpDzdXgaNbFAqJ=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/18fGosECr8urCGWmKN2tpDzdXgaNbFAqJ=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/18fGosECr8urCGWmKN2tpDzdXgaNbFAqJ/view"
   },
   {
     "id": "aa499d68-2b35-4d46-97ec-5680d13b15f8",
@@ -300,7 +309,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1vL3Ua82hD7OZKDfmR1zzZuxufFWWtzb4=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1vL3Ua82hD7OZKDfmR1zzZuxufFWWtzb4=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1vL3Ua82hD7OZKDfmR1zzZuxufFWWtzb4/view"
   },
   {
     "id": "079a92b2-ff53-4995-bcc8-9f103dc716fb",
@@ -310,7 +320,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1FDHBQaIkbR0Wc2jpv7EZ4T65ZUreVAPO=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1FDHBQaIkbR0Wc2jpv7EZ4T65ZUreVAPO=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1FDHBQaIkbR0Wc2jpv7EZ4T65ZUreVAPO/view"
   },
   {
     "id": "1a3a5cab-41aa-42bf-9eaa-4369fd439895",
@@ -320,7 +331,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1JyN12pWEN8sZfc-UH-U2b03FU5U3AZLf=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1JyN12pWEN8sZfc-UH-U2b03FU5U3AZLf=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1JyN12pWEN8sZfc-UH-U2b03FU5U3AZLf/view"
   },
   {
     "id": "0b5440f8-207d-43a2-90c8-b94b6db2a2d0",
@@ -330,7 +342,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1Ykvo2KbmZgvml4MTldLB26a0aLkV_8Zu=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1Ykvo2KbmZgvml4MTldLB26a0aLkV_8Zu=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1Ykvo2KbmZgvml4MTldLB26a0aLkV_8Zu/view"
   },
   {
     "id": "f0748ea0-441f-49c6-ac6d-dd6bada87653",
@@ -340,7 +353,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1eyPc0yDmEr8zcKBdKGDn2AI1cBp1Kc9L=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1eyPc0yDmEr8zcKBdKGDn2AI1cBp1Kc9L=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1eyPc0yDmEr8zcKBdKGDn2AI1cBp1Kc9L/view"
   },
   {
     "id": "11a2dbf0-d89a-4b15-b66e-4ede7b340e50",
@@ -350,7 +364,8 @@ const SEED_ATTACHED_IMAGES = [
     "imageNo": 0,
     "imageDate": "",
     "driveSourced": true,
-    "dataUrl": "https://lh3.googleusercontent.com/d/1a1JPs3apUZD7YA9iS_E_f7jEy0lRAYQx=s1600"
+    "dataUrl": "https://lh3.googleusercontent.com/d/1a1JPs3apUZD7YA9iS_E_f7jEy0lRAYQx=s1600",
+    "driveViewUrl": "https://drive.google.com/file/d/1a1JPs3apUZD7YA9iS_E_f7jEy0lRAYQx/view"
   }
 ];
 const monthlyStatusSnapshotKey = "qualityClaimDashboard.monthlyStatusSnapshot.v1";
@@ -5748,10 +5763,21 @@ function registerDetailImage(imageNo) {
   document.getElementById("imageFiles")?.click();
 }
 
+function driveFileIdFromShareUrl(raw) {
+  const text = String(raw || "");
+  const idMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || text.match(/[?&]id=([a-zA-Z0-9_-]+)/) || text.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return idMatch ? idMatch[1] : "";
+}
+
 function resolveImageLinkUrl(raw) {
-  const idMatch = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || raw.match(/[?&]id=([a-zA-Z0-9_-]+)/) || raw.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=s1600`;
+  const id = driveFileIdFromShareUrl(raw);
+  if (id) return `https://lh3.googleusercontent.com/d/${id}=s1600`;
   return raw;
+}
+
+function driveViewUrlFromShareUrl(raw) {
+  const id = driveFileIdFromShareUrl(raw);
+  return id ? `https://drive.google.com/file/d/${id}/view` : "";
 }
 
 function openDetailImage(index) {
@@ -5864,7 +5890,8 @@ function saveDashboardState(force = false) {
       imageNo: image.imageNo,
       imageDate: image.imageDate || "",
       driveSourced: true,
-      dataUrl: image.dataUrl
+      dataUrl: image.dataUrl,
+      driveViewUrl: image.driveViewUrl || ""
     } : {
       id: image.id,
       name: image.name,
@@ -6146,7 +6173,8 @@ function restoreSavedImages(images) {
       mimeType: image.mimeType || "",
       imageNo: image.imageNo || index + 1,
       imageDate: image.imageDate || "",
-      driveSourced: !!image.driveSourced
+      driveSourced: !!image.driveSourced,
+      driveViewUrl: image.driveViewUrl || ""
     }));
   if (!restored.length) return;
   addUploadEntry({

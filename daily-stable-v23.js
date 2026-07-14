@@ -102,7 +102,8 @@
       packaging: txt(row[10]) || "-",
       defect: txt(row[12]) || "",
       quantity: num(row[14]) || 0,
-      amount: num(row[17]) || num(row[16]) || num(row[15]) || 0
+      amount: num(row[17]) || num(row[16]) || num(row[15]) || 0,
+      photoLink: txt(row[18]) || ""
     };
   }
   function unique(items) {
@@ -641,7 +642,7 @@
       var inner = isVideo
         ? '<span class="detail-thumb-video">\uD83C\uDFA5</span>'
         : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
-      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
+      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
     html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">\uB9C1\uD06C\uCD94\uAC00</button>';
@@ -658,6 +659,12 @@
       var attachKey = normalizeMatchKey(r.receiptNo) + normalizeMatchKey(r.seq) + normalizeMatchKey(r.code);
       var defect = defectDescMarkup(r, attachKey);
       var images = matchingImages(r.receiptNo, r.seq, r.code);
+      if (r.photoLink) {
+        var resolveFn = window.resolveImageLinkUrl;
+        var embedFn = window.driveViewUrlFromShareUrl;
+        var resolvedPhoto = resolveFn ? resolveFn(r.photoLink) : r.photoLink;
+        images = [{ id: "sheet_" + attachKey, name: "SHEET_" + attachKey, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: "image", driveViewUrl: embedFn ? embedFn(r.photoLink) : "" }].concat(images);
+      }
       return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey) + '</td></tr>';
     }).join("") + '</tbody>';
   }
@@ -1047,6 +1054,7 @@
       '<div class="daily-lightbox-header">' +
         '<div><div class="daily-lightbox-name"></div><div class="daily-lightbox-meta"></div></div>' +
         '<div class="daily-lightbox-header-actions">' +
+          '<button type="button" class="daily-lightbox-icon-btn daily-lightbox-open-drive" title="새 창에서 보기 (영상 재생)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></button>' +
           '<button type="button" class="daily-lightbox-icon-btn daily-lightbox-download" title="다운로드"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>' +
           '<button type="button" class="daily-lightbox-icon-btn daily-lightbox-delete" title="삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg></button>' +
           '<button type="button" class="daily-lightbox-icon-btn daily-lightbox-close" title="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>' +
@@ -1072,6 +1080,11 @@
     el.querySelector(".daily-lightbox-nav.next").addEventListener("click", function () { stepLightbox(1); });
     el.querySelector(".daily-lightbox-zoom-out").addEventListener("click", function () { zoomLightbox(-1); });
     el.querySelector(".daily-lightbox-zoom-in").addEventListener("click", function () { zoomLightbox(1); });
+    el.querySelector(".daily-lightbox-open-drive").addEventListener("click", function () {
+      var item = lightboxGroup[lightboxIndex];
+      if (!item || !item.driveViewUrl) return;
+      window.open(item.driveViewUrl, "_blank", "noopener");
+    });
     el.querySelector(".daily-lightbox-download").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.src) return;
@@ -1124,7 +1137,8 @@
         src: w.getAttribute("data-preview-src") || "",
         name: w.getAttribute("data-image-name") || "",
         id: w.getAttribute("data-image-id") || "",
-        isVideo: w.getAttribute("data-media-type") === "video"
+        isVideo: w.getAttribute("data-media-type") === "video",
+        driveViewUrl: w.getAttribute("data-drive-view") || ""
       };
     });
     var startIndex = wraps.indexOf(wrap);
@@ -1156,9 +1170,11 @@
     var item = lightboxGroup[lightboxIndex];
     if (!item) return;
     var mediaWrap = el.querySelector(".daily-lightbox-media-wrap");
-    mediaWrap.innerHTML = item.isVideo
+    mediaWrap.innerHTML = (item.isVideo && !item.driveViewUrl)
       ? '<video class="daily-lightbox-media" src="' + esc(item.src) + '" controls autoplay></video>'
       : '<img class="daily-lightbox-media" src="' + esc(item.src) + '">';
+    var openBtn = el.querySelector(".daily-lightbox-open-drive");
+    if (openBtn) openBtn.style.display = item.driveViewUrl ? "" : "none";
     el.querySelector(".daily-lightbox-name").textContent = item.name;
     el.querySelector(".daily-lightbox-meta").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
     el.querySelector(".daily-lightbox-counter").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
@@ -1190,6 +1206,7 @@
     var saveDashboardState = window.saveDashboardState;
     var createImageId = window.createImageId;
     var resolveImageLinkUrl = window.resolveImageLinkUrl;
+    var driveViewUrlFromShareUrl = window.driveViewUrlFromShareUrl;
     if (!addUploadEntry || !rebuildFromSelection || !renderAll) return;
     var resolved = resolveImageLinkUrl ? resolveImageLinkUrl(url) : url;
     var image = {
@@ -1201,7 +1218,8 @@
       mimeType: "",
       imageNo: 0,
       imageDate: "",
-      driveSourced: true
+      driveSourced: true,
+      driveViewUrl: driveViewUrlFromShareUrl ? driveViewUrlFromShareUrl(url) : ""
     };
     addUploadEntry({ kind: "images", fileName: "링크 첨부", label: "직접첨부", rows: [], images: [image], selected: true, excluded: 0 });
     rebuildFromSelection();
