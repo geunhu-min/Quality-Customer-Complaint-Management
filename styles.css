@@ -1841,6 +1841,7 @@ main {
 .detail-table {
   table-layout: fixed;
   font-size: 15px;
+  width: auto;
   min-width: 1190px;
 }
 
@@ -1881,7 +1882,7 @@ main {
 }
 
 .detail-table .detail-col-defect {
-  width: auto;
+  width: 280px;
 }
 
 .detail-table .detail-col-image {
