@@ -103,7 +103,8 @@
       defect: txt(row[12]) || "",
       quantity: num(row[14]) || 0,
       amount: num(row[17]) || num(row[16]) || num(row[15]) || 0,
-      photoLink: txt(row[18]) || ""
+      photoLink: txt(row[18]) || "",
+      photoKind: txt(row[19]) || ""
     };
   }
   function unique(items) {
@@ -639,8 +640,11 @@
     var html = shown.map(function (img) {
       var full = esc(previewSrc(img));
       var isVideo = img.mediaType === "video";
+      var hasPoster = !!(img.url || img.dataUrl);
       var inner = isVideo
-        ? '<span class="detail-thumb-video">\uD83C\uDFA5</span>'
+        ? (hasPoster
+          ? '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy"><span class="detail-thumb-play">\u25B6</span>'
+          : '<span class="detail-thumb-video">\uD83C\uDFA5</span>')
         : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
       return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
@@ -663,7 +667,8 @@
         var resolveFn = window.resolveImageLinkUrl;
         var embedFn = window.driveViewUrlFromShareUrl;
         var resolvedPhoto = resolveFn ? resolveFn(r.photoLink) : r.photoLink;
-        images = [{ id: "sheet_" + attachKey, name: "SHEET_" + attachKey, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: "image", driveViewUrl: embedFn ? embedFn(r.photoLink) : "" }].concat(images);
+        var sheetMediaType = /영상|video/i.test(r.photoKind || "") ? "video" : "image";
+        images = [{ id: "sheet_" + attachKey, name: "SHEET_" + attachKey, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(r.photoLink) : "" }].concat(images);
       }
       return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey) + '</td></tr>';
     }).join("") + '</tbody>';
@@ -1083,7 +1088,7 @@
     el.querySelector(".daily-lightbox-open-drive").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.driveViewUrl) return;
-      window.open(item.driveViewUrl, "_blank", "noopener");
+      window.open(item.driveViewUrl, "driveView_" + Date.now(), "popup=yes,width=1100,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes,noopener");
     });
     el.querySelector(".daily-lightbox-download").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];

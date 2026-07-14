@@ -1973,6 +1973,19 @@ main {
   cursor: zoom-in;
 }
 
+.detail-thumb-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
 .detail-thumb-video {
   display: inline-flex;
   width: 36px;
