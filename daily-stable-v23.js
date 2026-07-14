@@ -1431,14 +1431,6 @@
         openAttachLightbox(wrap);
       }
     }, true);
-    document.addEventListener("paste", function (event) {
-      if (!activeAttachKey) return;
-      var text = ((event.clipboardData && event.clipboardData.getData("text")) || "").trim();
-      if (/^https?:\/\/\S+$/.test(text)) {
-        event.preventDefault();
-        attachLinkToKey(text, activeAttachKey);
-      }
-    });
   }
   document.addEventListener("DOMContentLoaded", function () {
     ensureControls();
