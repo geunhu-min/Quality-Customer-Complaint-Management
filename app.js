@@ -466,7 +466,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("showSelected")?.addEventListener("click", () => renderAll("선택한 자료만 합산 표시 중"));
   document.getElementById("toggleFileCards")?.addEventListener("click", toggleFileCards);
   document.getElementById("exportSavedLinkGroups")?.addEventListener("click", exportSeedSavedLinkGroups);
-  document.getElementById("exportAttachedImages")?.addEventListener("click", exportSeedAttachedImages);
   document.getElementById("clearSelection")?.addEventListener("click", clearSelection);
   document.getElementById("deleteSelected")?.addEventListener("click", deleteSelectedUploads);
   document.getElementById("downloadDb")?.addEventListener("click", downloadLocalDb);
@@ -6102,7 +6101,8 @@ async function restoreSavedDashboardState() {
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
     const storedLinkImages = (payload.images || []).filter((image) => image.driveSourced);
-    const linkImages = storedLinkImages.length ? storedLinkImages : SEED_ATTACHED_IMAGES;
+    const storedLinkIds = new Set(storedLinkImages.map((image) => image.id));
+    const linkImages = storedLinkImages.concat(SEED_ATTACHED_IMAGES.filter((image) => !storedLinkIds.has(image.id)));
     const localImages = dbImages.length ? dbImages : (payload.images || []).filter((image) => !image.driveSourced);
     restoreSavedImages(localImages.concat(linkImages));
     activeUploadId = state.uploads.find((entry) => entry.label === payload.activeUploadLabel)?.id || state.uploads[0]?.id || "sample";
@@ -6134,28 +6134,6 @@ function exportSeedSavedLinkGroups() {
   }
   const text = `const SEED_SAVED_LINK_GROUPS = ${JSON.stringify(groups, null, 2)};`;
   const done = () => alert("복사되었습니다. app.js의 SEED_SAVED_LINK_GROUPS 부분에 붙여넣고 저장/배포하세요.");
-  const fail = () => window.prompt("자동 복사에 실패했습니다. 아래 내용을 직접 복사하세요:", text);
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(done).catch(fail);
-  } else {
-    fail();
-  }
-}
-
-function exportSeedAttachedImages() {
-  const raw = localStorage.getItem(dashboardStorageKey);
-  let images = [];
-  try {
-    images = ((JSON.parse(raw || "null")?.images) || []).filter((image) => image.driveSourced);
-  } catch (_) {
-    images = [];
-  }
-  if (!images.length) {
-    alert("내보낼 사진 링크가 없습니다. 먼저 사진 링크추가로 넣어주세요.");
-    return;
-  }
-  const text = `const SEED_ATTACHED_IMAGES = ${JSON.stringify(images, null, 2)};`;
-  const done = () => alert("복사되었습니다. app.js의 SEED_ATTACHED_IMAGES 부분에 붙여넣고 저장/배포하세요.");
   const fail = () => window.prompt("자동 복사에 실패했습니다. 아래 내용을 직접 복사하세요:", text);
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(fail);
@@ -14334,11 +14312,9 @@ function buildClaimSummaryMeta(latestDate) {
     var insertBtn = document.getElementById("openDataInsert");
     var deleteBtn = document.getElementById("toggleFileCards");
     var exportBtn = document.getElementById("exportSavedLinkGroups");
-    var exportImagesBtn = document.getElementById("exportAttachedImages");
     if (insertBtn) insertBtn.hidden = !canEdit;
     if (deleteBtn) deleteBtn.hidden = !canEdit;
     if (exportBtn) exportBtn.hidden = !canEdit;
-    if (exportImagesBtn) exportImagesBtn.hidden = !canEdit;
   }
   function checkCanEdit() {
     var token = getAdminToken();
@@ -14347,9 +14323,7 @@ function buildClaimSummaryMeta(latestDate) {
       .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
       .catch(function () {
         var exportBtn = document.getElementById("exportSavedLinkGroups");
-        var exportImagesBtn = document.getElementById("exportAttachedImages");
         if (exportBtn) exportBtn.hidden = true;
-        if (exportImagesBtn) exportImagesBtn.hidden = true;
       });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);
