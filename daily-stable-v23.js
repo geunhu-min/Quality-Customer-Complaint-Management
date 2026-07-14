@@ -676,6 +676,14 @@
         });
         images = sheetImages.concat(images);
       }
+      var seenImageUrls = {};
+      images = images.filter(function (img) {
+        var dedupeUrl = img.url || img.dataUrl || "";
+        if (!dedupeUrl) return true;
+        if (seenImageUrls[dedupeUrl]) return false;
+        seenImageUrls[dedupeUrl] = true;
+        return true;
+      });
       return '<tr><td class="detail-row-num-cell">' + (i + 1) + '</td><td class="detail-category-cell">' + esc(r.category) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.brand) + '</td><td>' + esc(r.source) + '</td><td>' + esc(r.code) + '</td><td>' + esc(r.color) + '</td><td>' + esc(r.lot) + '</td><td>' + esc(r.supplier) + '</td><td class="left defect-desc" data-defect-key="' + esc(attachKey) + '">' + defect + '</td><td class="image-cell">' + imageCellMarkup(images, attachKey, r) + '</td></tr>';
     }).join("") + '</tbody>';
   }
