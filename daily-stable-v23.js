@@ -136,10 +136,17 @@
     if (label === "\uAD6C\uB9E4") return 4;
     return 5;
   }
+  function defectPrefixRank(defect) {
+    var t = String(defect || "").trim();
+    if (t.indexOf("상판") === 0) return 1;
+    if (t.indexOf("도어") === 0) return 2;
+    return 3;
+  }
   function sortDetails(rows) {
     return rows.slice().sort(function (a, b) {
       return sourceRank(a.source) - sourceRank(b.source) ||
         categoryRank(a.category) - categoryRank(b.category) ||
+        defectPrefixRank(a.defect) - defectPrefixRank(b.defect) ||
         a.source.localeCompare(b.source, "ko") ||
         a.code.localeCompare(b.code, "ko");
     });
