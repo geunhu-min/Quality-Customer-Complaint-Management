@@ -916,7 +916,7 @@
       var rows = [];
       wb.SheetNames.forEach(function (name) {
         var sheet = wb.Sheets[name];
-        var data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });
+        var data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
         if (!sheetHeaderRow && data.length && !validRow(data[0])) sheetHeaderRow = data[0];
         data.forEach(function (row, idx) {
           if (validRow(row)) rows.push(rowToItem(row, name, idx));
@@ -1237,12 +1237,23 @@
     renderAll();
     if (saveDashboardState) saveDashboardState();
     var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
-    if (sheetSyncUrl && meta && meta.receiptNo) {
-      fetch(sheetSyncUrl, {
-        method: "POST",
-        body: JSON.stringify({ receiptNo: meta.receiptNo, seq: meta.seq || "", code: meta.code || "", link: url, kind: meta.kind || "" })
-      }).catch(function () {});
+    if (!sheetSyncUrl) return;
+    if (!meta || !meta.receiptNo) {
+      window.alert("시트 자동 연동 실패: 이 항목의 접수번호 정보를 찾지 못했습니다. (내부 오류 - 개발자에게 문의)");
+      return;
     }
+    fetch(sheetSyncUrl, {
+      method: "POST",
+      body: JSON.stringify({ receiptNo: meta.receiptNo, seq: meta.seq || "", code: meta.code || "", link: url, kind: meta.kind || "" })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data || !data.ok) {
+        window.alert("시트 자동 연동 실패: " + (data && data.error ? data.error : "알 수 없는 오류") + "\n(사진은 이 브라우저에는 정상적으로 등록되었습니다.)");
+      } else if (!data.updated) {
+        window.alert("시트에서 이 항목과 일치하는 행을 찾지 못해 시트에는 반영되지 않았습니다.\n(접수번호: " + meta.receiptNo + " / 순번: " + (meta.seq || "") + " / 제품코드: " + (meta.code || "") + ")\n사진은 이 브라우저에는 정상적으로 등록되었습니다.");
+      }
+    }).catch(function (err) {
+      window.alert("시트 자동 연동 요청이 실패했습니다: " + (err && err.message ? err.message : err) + "\n(사진은 이 브라우저에는 정상적으로 등록되었습니다.)");
+    });
   }
   function deleteAttachedImage(imageId) {
     var st = sharedState();
