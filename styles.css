@@ -1919,6 +1919,10 @@ main {
   overflow-wrap: anywhere;
 }
 
+.detail-table td {
+  font-weight: 400;
+}
+
 .detail-table th {
   font-weight: 900;
   text-shadow: 0 0 0.45px currentColor;
@@ -1951,13 +1955,13 @@ main {
 
 .detail-table .detail-row-num-cell {
   color: #64748b;
-  font-weight: 900;
+  font-weight: 400;
   text-align: center;
 }
 
 .detail-table .detail-category-cell {
   color: #0f172a;
-  font-weight: 900;
+  font-weight: 400;
   text-align: center;
 }
 
@@ -1970,7 +1974,7 @@ main {
 .detail-table .defect-desc {
   text-align: left;
   line-height: 1.55;
-  font-weight: 700;
+  font-weight: 400;
   white-space: pre-wrap;
   word-break: keep-all;
   overflow-wrap: anywhere;
