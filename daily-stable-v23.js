@@ -1125,6 +1125,10 @@
     el.querySelector(".daily-lightbox-nav.next").addEventListener("click", function () { stepLightbox(1); });
     el.querySelector(".daily-lightbox-zoom-out").addEventListener("click", function () { zoomLightbox(-1); });
     el.querySelector(".daily-lightbox-zoom-in").addEventListener("click", function () { zoomLightbox(1); });
+    el.querySelector(".daily-lightbox-stage").addEventListener("wheel", function (event) {
+      event.preventDefault();
+      zoomLightbox(event.deltaY < 0 ? 1 : -1);
+    }, { passive: false });
     el.querySelector(".daily-lightbox-open-drive").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.driveViewUrl) return;
