@@ -5911,7 +5911,11 @@ function saveDashboardState(force = false) {
       driveSourced: true,
       dataUrl: image.dataUrl,
       driveViewUrl: image.driveViewUrl || "",
-      embedUrl: image.embedUrl || ""
+      embedUrl: image.embedUrl || "",
+      sourceLink: image.sourceLink || "",
+      sheetReceiptNo: image.sheetReceiptNo || "",
+      sheetSeq: image.sheetSeq || "",
+      sheetCode: image.sheetCode || ""
     } : {
       id: image.id,
       name: image.name,
@@ -6174,7 +6178,11 @@ function restoreSavedImages(images) {
       imageDate: image.imageDate || "",
       driveSourced: !!image.driveSourced,
       driveViewUrl: image.driveViewUrl || "",
-      embedUrl: image.embedUrl || ""
+      embedUrl: image.embedUrl || "",
+      sourceLink: image.sourceLink || "",
+      sheetReceiptNo: image.sheetReceiptNo || "",
+      sheetSeq: image.sheetSeq || "",
+      sheetCode: image.sheetCode || ""
     }));
   if (!restored.length) return;
   addUploadEntry({

@@ -18,6 +18,7 @@
   var lastDetailHtml = "";
   var lastCardsHtml = "";
   var lastCardsRows = [];
+  var sheetImageRegistry = {};
   var lastSummaryHtml = "";
   var lastDetailPeriodKey = "";
   var loadAttempts = 0;
@@ -653,7 +654,7 @@
           ? '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy"><span class="detail-thumb-play">\u25B6</span>'
           : '<span class="detail-thumb-video">\uD83C\uDFA5</span>')
         : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
-      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(img.embedUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
+      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(img.embedUrl || "") + '" data-source-link="' + esc(img.sourceLink || "") + '" data-sheet-receipt-no="' + esc(img.sheetReceiptNo || (row && row.receiptNo) || "") + '" data-sheet-seq="' + esc(img.sheetSeq || (row && row.seq) || "") + '" data-sheet-code="' + esc(img.sheetCode || (row && row.code) || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
     html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">추가</button>';
@@ -681,7 +682,9 @@
           var resolvedPhoto = resolveFn ? resolveFn(link) : link;
           var kind = kinds[linkIndex] || "";
           var sheetMediaType = (/영상|video/i.test(kind) || (youtubeIdFn && youtubeIdFn(link))) ? "video" : "image";
-          return { id: "sheet_" + attachKey + "_" + linkIndex, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "", embedUrl: iframeEmbedFn ? iframeEmbedFn(link) : "" };
+          var sheetImageId = "sheet_" + attachKey + "_" + linkIndex;
+          sheetImageRegistry[sheetImageId] = { row: r, linkIndex: linkIndex, rawLink: link };
+          return { id: sheetImageId, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "", embedUrl: iframeEmbedFn ? iframeEmbedFn(link) : "" };
         });
         images = sheetImages.concat(images);
       }
@@ -1135,8 +1138,8 @@
     el.querySelector(".daily-lightbox-delete").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.id) return;
-      if (!window.confirm("정말 삭제하시겠습니까?")) return;
-      deleteAttachedImage(item.id);
+      if (!window.confirm("정말 삭제하시겠습니까? (구글시트에서도 함께 삭제됩니다)")) return;
+      removeAttachedLink(item);
       closeAttachLightbox();
     });
     document.addEventListener("keydown", function (event) {
@@ -1181,7 +1184,11 @@
         id: w.getAttribute("data-image-id") || "",
         isVideo: w.getAttribute("data-media-type") === "video",
         driveViewUrl: w.getAttribute("data-drive-view") || "",
-        embedUrl: w.getAttribute("data-embed-url") || ""
+        embedUrl: w.getAttribute("data-embed-url") || "",
+        sourceLink: w.getAttribute("data-source-link") || "",
+        sheetReceiptNo: w.getAttribute("data-sheet-receipt-no") || "",
+        sheetSeq: w.getAttribute("data-sheet-seq") || "",
+        sheetCode: w.getAttribute("data-sheet-code") || ""
       };
     });
     var startIndex = wraps.indexOf(wrap);
@@ -1268,7 +1275,11 @@
       imageDate: "",
       driveSourced: true,
       driveViewUrl: driveViewUrlFromShareUrl ? driveViewUrlFromShareUrl(url) : "",
-      embedUrl: youtubeEmbedUrlFromShareUrl ? youtubeEmbedUrlFromShareUrl(url) : ""
+      embedUrl: youtubeEmbedUrlFromShareUrl ? youtubeEmbedUrlFromShareUrl(url) : "",
+      sourceLink: url,
+      sheetReceiptNo: (meta && meta.receiptNo) || "",
+      sheetSeq: (meta && meta.seq) || "",
+      sheetCode: (meta && meta.code) || ""
     };
     addUploadEntry({ kind: "images", fileName: "링크 첨부", label: "직접첨부", rows: [], images: [image], selected: true, excluded: 0 });
     rebuildFromSelection();
@@ -1308,6 +1319,37 @@
     if (rebuildFromSelection) rebuildFromSelection();
     if (renderAll) renderAll();
     if (saveDashboardState) saveDashboardState();
+  }
+  function removeAttachedLink(item) {
+    if (!item) return;
+    var reg = item.id ? sheetImageRegistry[item.id] : null;
+    var receiptNo = (reg && reg.row && reg.row.receiptNo) || item.sheetReceiptNo || "";
+    var seq = (reg && reg.row && reg.row.seq) || item.sheetSeq || "";
+    var code = (reg && reg.row && reg.row.code) || item.sheetCode || "";
+    var rawLink = (reg && reg.rawLink) || item.sourceLink || "";
+    var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
+    if (sheetSyncUrl && receiptNo && rawLink) {
+      fetch(sheetSyncUrl, {
+        method: "POST",
+        body: JSON.stringify({ action: "delete", receiptNo: receiptNo, seq: seq, code: code, link: rawLink })
+      }).then(function (res) { return res.json(); }).then(function (data) {
+        if (!data || !data.ok) {
+          window.alert("시트에서 삭제하지 못했습니다: " + (data && data.error ? data.error : "알 수 없는 오류") + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
+        }
+      }).catch(function (err) {
+        window.alert("시트 삭제 요청이 실패했습니다: " + (err && err.message ? err.message : err) + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
+      });
+    }
+    if (reg && reg.row) {
+      var links = String(reg.row.photoLink || "").split(",").map(function (v) { return v.trim(); });
+      var kinds = String(reg.row.photoKind || "").split(",").map(function (v) { return v.trim(); });
+      links.splice(reg.linkIndex, 1);
+      kinds.splice(reg.linkIndex, 1);
+      reg.row.photoLink = links.filter(Boolean).join(",");
+      reg.row.photoKind = kinds.join(",");
+    }
+    if (item.id) deleteAttachedImage(item.id);
+    scheduleStableRender();
   }
   var defectColorSavedRange = null;
   function ensureDefectColorToolbar() {
