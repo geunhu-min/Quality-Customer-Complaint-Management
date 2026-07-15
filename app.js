@@ -5771,13 +5771,30 @@ function driveFileIdFromShareUrl(raw) {
   return idMatch ? idMatch[1] : "";
 }
 
+function youtubeVideoIdFromUrl(raw) {
+  const text = String(raw || "");
+  const idMatch = text.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/) ||
+    text.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{6,})/) ||
+    text.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/) ||
+    text.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+  return idMatch ? idMatch[1] : "";
+}
+
+function youtubeEmbedUrlFromShareUrl(raw) {
+  const id = youtubeVideoIdFromUrl(raw);
+  return id ? `https://www.youtube.com/embed/${id}` : "";
+}
+
 function resolveImageLinkUrl(raw) {
+  const ytId = youtubeVideoIdFromUrl(raw);
+  if (ytId) return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
   const id = driveFileIdFromShareUrl(raw);
   if (id) return `https://lh3.googleusercontent.com/d/${id}=s1600`;
   return raw;
 }
 
 function driveViewUrlFromShareUrl(raw) {
+  if (youtubeVideoIdFromUrl(raw)) return String(raw || "");
   const id = driveFileIdFromShareUrl(raw);
   return id ? `https://drive.google.com/file/d/${id}/view` : "";
 }
@@ -5893,7 +5910,8 @@ function saveDashboardState(force = false) {
       imageDate: image.imageDate || "",
       driveSourced: true,
       dataUrl: image.dataUrl,
-      driveViewUrl: image.driveViewUrl || ""
+      driveViewUrl: image.driveViewUrl || "",
+      embedUrl: image.embedUrl || ""
     } : {
       id: image.id,
       name: image.name,
@@ -6155,7 +6173,8 @@ function restoreSavedImages(images) {
       imageNo: image.imageNo || index + 1,
       imageDate: image.imageDate || "",
       driveSourced: !!image.driveSourced,
-      driveViewUrl: image.driveViewUrl || ""
+      driveViewUrl: image.driveViewUrl || "",
+      embedUrl: image.embedUrl || ""
     }));
   if (!restored.length) return;
   addUploadEntry({

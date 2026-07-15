@@ -653,7 +653,7 @@
           ? '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy"><span class="detail-thumb-play">\u25B6</span>'
           : '<span class="detail-thumb-video">\uD83C\uDFA5</span>')
         : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
-      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
+      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(img.embedUrl || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
     html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">추가</button>';
@@ -673,13 +673,15 @@
       if (r.photoLink) {
         var resolveFn = window.resolveImageLinkUrl;
         var embedFn = window.driveViewUrlFromShareUrl;
+        var iframeEmbedFn = window.youtubeEmbedUrlFromShareUrl;
+        var youtubeIdFn = window.youtubeVideoIdFromUrl;
         var links = r.photoLink.split(",").map(function (v) { return v.trim(); }).filter(Boolean);
         var kinds = (r.photoKind || "").split(",").map(function (v) { return v.trim(); });
         var sheetImages = links.map(function (link, linkIndex) {
           var resolvedPhoto = resolveFn ? resolveFn(link) : link;
           var kind = kinds[linkIndex] || "";
-          var sheetMediaType = /영상|video/i.test(kind) ? "video" : "image";
-          return { id: "sheet_" + attachKey + "_" + linkIndex, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "" };
+          var sheetMediaType = (/영상|video/i.test(kind) || (youtubeIdFn && youtubeIdFn(link))) ? "video" : "image";
+          return { id: "sheet_" + attachKey + "_" + linkIndex, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "", embedUrl: iframeEmbedFn ? iframeEmbedFn(link) : "" };
         });
         images = sheetImages.concat(images);
       }
@@ -1178,7 +1180,8 @@
         name: w.getAttribute("data-image-name") || "",
         id: w.getAttribute("data-image-id") || "",
         isVideo: w.getAttribute("data-media-type") === "video",
-        driveViewUrl: w.getAttribute("data-drive-view") || ""
+        driveViewUrl: w.getAttribute("data-drive-view") || "",
+        embedUrl: w.getAttribute("data-embed-url") || ""
       };
     });
     var startIndex = wraps.indexOf(wrap);
@@ -1210,9 +1213,11 @@
     var item = lightboxGroup[lightboxIndex];
     if (!item) return;
     var mediaWrap = el.querySelector(".daily-lightbox-media-wrap");
-    mediaWrap.innerHTML = (item.isVideo && !item.driveViewUrl)
-      ? '<video class="daily-lightbox-media" src="' + esc(item.src) + '" controls autoplay></video>'
-      : '<img class="daily-lightbox-media" src="' + esc(item.src) + '">';
+    mediaWrap.innerHTML = item.embedUrl
+      ? '<iframe class="daily-lightbox-media daily-lightbox-embed" src="' + esc(item.embedUrl) + '" allow="autoplay; encrypted-media; fullscreen" allowfullscreen frameborder="0"></iframe>'
+      : (item.isVideo && !item.driveViewUrl)
+        ? '<video class="daily-lightbox-media" src="' + esc(item.src) + '" controls autoplay></video>'
+        : '<img class="daily-lightbox-media" src="' + esc(item.src) + '">';
     var openBtn = el.querySelector(".daily-lightbox-open-drive");
     if (openBtn) openBtn.style.display = item.driveViewUrl ? "" : "none";
     el.querySelector(".daily-lightbox-name").textContent = item.name;
@@ -1247,9 +1252,11 @@
     var createImageId = window.createImageId;
     var resolveImageLinkUrl = window.resolveImageLinkUrl;
     var driveViewUrlFromShareUrl = window.driveViewUrlFromShareUrl;
+    var youtubeEmbedUrlFromShareUrl = window.youtubeEmbedUrlFromShareUrl;
+    var youtubeVideoIdFromUrl = window.youtubeVideoIdFromUrl;
     if (!addUploadEntry || !rebuildFromSelection || !renderAll) return;
     var resolved = resolveImageLinkUrl ? resolveImageLinkUrl(url) : url;
-    var isVideoKind = /영상|video/i.test((meta && meta.kind) || "") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved);
+    var isVideoKind = /영상|video/i.test((meta && meta.kind) || "") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved) || !!(youtubeVideoIdFromUrl && youtubeVideoIdFromUrl(url));
     var image = {
       id: createImageId ? createImageId() : ("img_" + Date.now()),
       name: "ATTACH_" + key + "_" + Date.now() + "_0",
@@ -1260,7 +1267,8 @@
       imageNo: 0,
       imageDate: "",
       driveSourced: true,
-      driveViewUrl: driveViewUrlFromShareUrl ? driveViewUrlFromShareUrl(url) : ""
+      driveViewUrl: driveViewUrlFromShareUrl ? driveViewUrlFromShareUrl(url) : "",
+      embedUrl: youtubeEmbedUrlFromShareUrl ? youtubeEmbedUrlFromShareUrl(url) : ""
     };
     addUploadEntry({ kind: "images", fileName: "링크 첨부", label: "직접첨부", rows: [], images: [image], selected: true, excluded: 0 });
     rebuildFromSelection();

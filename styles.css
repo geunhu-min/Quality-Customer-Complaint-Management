@@ -2179,6 +2179,13 @@ main {
   flex: 0 0 auto;
 }
 
+.daily-lightbox-embed {
+  width: min(88vw, 900px);
+  height: min(78vh, 506px);
+  border: none;
+  background: #000;
+}
+
 .daily-lightbox-counter {
   position: absolute;
   bottom: 16px;
