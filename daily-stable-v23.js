@@ -684,8 +684,8 @@
           var sheetMediaType = (/영상|video/i.test(kind) || (youtubeIdFn && youtubeIdFn(link))) ? "video" : "image";
           var sheetImageId = "sheet_" + attachKey + "_" + linkIndex;
           sheetImageRegistry[sheetImageId] = { row: r, linkIndex: linkIndex, rawLink: link };
-          return { id: sheetImageId, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "", embedUrl: iframeEmbedFn ? iframeEmbedFn(link) : "" };
-        });
+          return { id: sheetImageId, name: "SHEET_" + attachKey + "_" + linkIndex, url: resolvedPhoto, dataUrl: resolvedPhoto, mediaType: sheetMediaType, driveViewUrl: embedFn ? embedFn(link) : "", embedUrl: iframeEmbedFn ? iframeEmbedFn(link) : "", hidden: isHiddenSheetLink(link) };
+        }).filter(function (img) { return !img.hidden; });
         images = sheetImages.concat(images);
       }
       var seenImageUrls = {};
@@ -1138,9 +1138,7 @@
     el.querySelector(".daily-lightbox-delete").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.id) return;
-      if (!window.confirm("정말 삭제하시겠습니까? (구글시트에서도 함께 삭제됩니다)")) return;
-      removeAttachedLink(item);
-      closeAttachLightbox();
+      openRemoveLinkModal(item);
     });
     document.addEventListener("keydown", function (event) {
       if (!el.classList.contains("open")) return;
@@ -1320,33 +1318,56 @@
     if (renderAll) renderAll();
     if (saveDashboardState) saveDashboardState();
   }
-  function removeAttachedLink(item) {
+  var HIDDEN_SHEET_LINKS_KEY = "dailyStableHiddenSheetLinks.v1";
+  function loadHiddenSheetLinks() {
+    try {
+      var arr = JSON.parse(localStorage.getItem(HIDDEN_SHEET_LINKS_KEY) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+  function isHiddenSheetLink(rawLink) {
+    return loadHiddenSheetLinks().indexOf(rawLink) >= 0;
+  }
+  function hideSheetLinkForThisBrowser(rawLink) {
+    if (!rawLink) return;
+    var list = loadHiddenSheetLinks();
+    if (list.indexOf(rawLink) < 0) {
+      list.push(rawLink);
+      try { localStorage.setItem(HIDDEN_SHEET_LINKS_KEY, JSON.stringify(list)); } catch (_) {}
+    }
+  }
+  function removeAttachedLink(item, options) {
     if (!item) return;
+    var alsoDeleteFromSheet = !options || options.alsoDeleteFromSheet !== false;
     var reg = item.id ? sheetImageRegistry[item.id] : null;
     var receiptNo = (reg && reg.row && reg.row.receiptNo) || item.sheetReceiptNo || "";
     var seq = (reg && reg.row && reg.row.seq) || item.sheetSeq || "";
     var code = (reg && reg.row && reg.row.code) || item.sheetCode || "";
     var rawLink = (reg && reg.rawLink) || item.sourceLink || "";
-    var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
-    if (sheetSyncUrl && receiptNo && rawLink) {
-      fetch(sheetSyncUrl, {
-        method: "POST",
-        body: JSON.stringify({ action: "delete", receiptNo: receiptNo, seq: seq, code: code, link: rawLink })
-      }).then(function (res) { return res.json(); }).then(function (data) {
-        if (!data || !data.ok) {
-          window.alert("시트에서 삭제하지 못했습니다: " + (data && data.error ? data.error : "알 수 없는 오류") + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
-        }
-      }).catch(function (err) {
-        window.alert("시트 삭제 요청이 실패했습니다: " + (err && err.message ? err.message : err) + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
-      });
-    }
-    if (reg && reg.row) {
-      var links = String(reg.row.photoLink || "").split(",").map(function (v) { return v.trim(); });
-      var kinds = String(reg.row.photoKind || "").split(",").map(function (v) { return v.trim(); });
-      links.splice(reg.linkIndex, 1);
-      kinds.splice(reg.linkIndex, 1);
-      reg.row.photoLink = links.filter(Boolean).join(",");
-      reg.row.photoKind = kinds.join(",");
+    if (alsoDeleteFromSheet) {
+      var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
+      if (sheetSyncUrl && receiptNo && rawLink) {
+        fetch(sheetSyncUrl, {
+          method: "POST",
+          body: JSON.stringify({ action: "delete", receiptNo: receiptNo, seq: seq, code: code, link: rawLink })
+        }).then(function (res) { return res.json(); }).then(function (data) {
+          if (!data || !data.ok) {
+            window.alert("시트에서 삭제하지 못했습니다: " + (data && data.error ? data.error : "알 수 없는 오류") + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
+          }
+        }).catch(function (err) {
+          window.alert("시트 삭제 요청이 실패했습니다: " + (err && err.message ? err.message : err) + "\n(이 브라우저에서는 정상적으로 삭제되었습니다.)");
+        });
+      }
+      if (reg && reg.row) {
+        var links = String(reg.row.photoLink || "").split(",").map(function (v) { return v.trim(); });
+        var kinds = String(reg.row.photoKind || "").split(",").map(function (v) { return v.trim(); });
+        links.splice(reg.linkIndex, 1);
+        kinds.splice(reg.linkIndex, 1);
+        reg.row.photoLink = links.filter(Boolean).join(",");
+        reg.row.photoKind = kinds.join(",");
+      }
+    } else if (rawLink) {
+      hideSheetLinkForThisBrowser(rawLink);
     }
     if (item.id) deleteAttachedImage(item.id);
     scheduleStableRender();
@@ -1492,6 +1513,50 @@
     el.querySelector(".link-attach-video-check").checked = false;
     el.classList.add("open");
     setTimeout(function () { el.querySelector(".link-attach-input").focus(); }, 0);
+  }
+  var removeLinkTargetItem = null;
+  function ensureRemoveLinkModal() {
+    var el = document.getElementById("dailyRemoveLinkModal");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "dailyRemoveLinkModal";
+    el.className = "modal";
+    el.innerHTML =
+      '<div class="modal-dialog" style="width:min(400px,92vw)">' +
+        '<div class="modal-head"><h2 style="font-size:16px">삭제 범위 선택</h2><button type="button" class="remove-link-close">닫기</button></div>' +
+        '<p style="margin:0 0 16px;color:#4b5563;font-size:14px;line-height:1.6">' +
+          '시트에서도 삭제하면 다른 사람 화면에서도 사라집니다.<br>' +
+          '이 브라우저에서만 삭제하면 시트에는 그대로 남고, 이 브라우저에서만 안 보이게 됩니다.' +
+        '</p>' +
+        '<div style="display:flex;flex-direction:column;gap:8px">' +
+          '<button type="button" class="remove-link-sheet insert-button">시트에서도 삭제</button>' +
+          '<button type="button" class="remove-link-local">이 브라우저에서만 삭제</button>' +
+          '<button type="button" class="remove-link-cancel">취소</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    function close() { el.classList.remove("open"); removeLinkTargetItem = null; }
+    function confirmWith(alsoDeleteFromSheet) {
+      var item = removeLinkTargetItem;
+      close();
+      if (!item) return;
+      removeAttachedLink(item, { alsoDeleteFromSheet: alsoDeleteFromSheet });
+      closeAttachLightbox();
+    }
+    el.addEventListener("click", function (event) { if (event.target === el) close(); });
+    el.querySelector(".remove-link-close").addEventListener("click", close);
+    el.querySelector(".remove-link-cancel").addEventListener("click", close);
+    el.querySelector(".remove-link-sheet").addEventListener("click", function () { confirmWith(true); });
+    el.querySelector(".remove-link-local").addEventListener("click", function () { confirmWith(false); });
+    document.addEventListener("keydown", function (event) {
+      if (el.classList.contains("open") && event.key === "Escape") close();
+    });
+    return el;
+  }
+  function openRemoveLinkModal(item) {
+    var el = ensureRemoveLinkModal();
+    removeLinkTargetItem = item;
+    el.classList.add("open");
   }
   function installImageClickOpen() {
     if (window.__dailyStableImageClickInstalled) return;

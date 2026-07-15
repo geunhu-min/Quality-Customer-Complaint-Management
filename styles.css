@@ -290,6 +290,29 @@ main {
   cursor: pointer;
 }
 
+#dailyRemoveLinkModal {
+  z-index: 1001;
+}
+
+#dailyRemoveLinkModal .remove-link-close,
+#dailyRemoveLinkModal .remove-link-local,
+#dailyRemoveLinkModal .remove-link-cancel {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#dailyRemoveLinkModal .remove-link-sheet {
+  min-height: 38px;
+  border-radius: 6px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .link-form textarea {
   width: 100%;
   padding: 8px 10px;
