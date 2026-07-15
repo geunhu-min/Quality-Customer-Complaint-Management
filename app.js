@@ -14339,9 +14339,11 @@ function buildClaimSummaryMeta(latestDate) {
     var insertBtn = document.getElementById("openDataInsert");
     var deleteBtn = document.getElementById("toggleFileCards");
     var exportBtn = document.getElementById("exportSavedLinkGroups");
+    var photoSyncBtn = document.getElementById("dailyPhotoFolderSyncBtn");
     if (insertBtn) insertBtn.hidden = !canEdit;
     if (deleteBtn) deleteBtn.hidden = !canEdit;
     if (exportBtn) exportBtn.hidden = !canEdit;
+    if (photoSyncBtn) photoSyncBtn.hidden = !canEdit;
   }
   function checkCanEdit() {
     var token = getAdminToken();
@@ -14350,7 +14352,9 @@ function buildClaimSummaryMeta(latestDate) {
       .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
       .catch(function () {
         var exportBtn = document.getElementById("exportSavedLinkGroups");
+        var photoSyncBtn = document.getElementById("dailyPhotoFolderSyncBtn");
         if (exportBtn) exportBtn.hidden = true;
+        if (photoSyncBtn) photoSyncBtn.hidden = true;
       });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);

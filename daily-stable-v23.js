@@ -1558,6 +1558,81 @@
     removeLinkTargetItem = item;
     el.classList.add("open");
   }
+  function ensurePhotoFolderSyncModal() {
+    var el = document.getElementById("dailyPhotoFolderSyncModal");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "dailyPhotoFolderSyncModal";
+    el.className = "modal";
+    el.innerHTML =
+      '<div class="modal-dialog" style="width:min(420px,92vw)">' +
+        '<div class="modal-head"><h2 style="font-size:16px">일일접수사진 등록</h2><button type="button" class="link-attach-close">닫기</button></div>' +
+        '<label style="display:grid;gap:6px;margin-bottom:14px">' +
+          '<span>구글 드라이브 폴더 링크 (폴더명 = 접수일자)</span>' +
+          '<input type="text" class="link-attach-input" placeholder="https://drive.google.com/drive/folders/...">' +
+        '</label>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px">' +
+          '<button type="button" class="link-attach-cancel">취소</button>' +
+          '<button type="button" class="link-attach-confirm insert-button">가져오기</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    function close() { el.classList.remove("open"); }
+    function confirmSync() {
+      var input = el.querySelector(".link-attach-input");
+      var folderUrl = (input.value || "").trim();
+      close();
+      if (!folderUrl) return;
+      runPhotoFolderSync(folderUrl);
+    }
+    el.addEventListener("click", function (event) { if (event.target === el) close(); });
+    el.querySelector(".link-attach-close").addEventListener("click", close);
+    el.querySelector(".link-attach-cancel").addEventListener("click", close);
+    el.querySelector(".link-attach-confirm").addEventListener("click", confirmSync);
+    el.querySelector(".link-attach-input").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") confirmSync();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (el.classList.contains("open") && event.key === "Escape") close();
+    });
+    return el;
+  }
+  function openPhotoFolderSyncModal() {
+    var el = ensurePhotoFolderSyncModal();
+    el.querySelector(".link-attach-input").value = "";
+    el.classList.add("open");
+    setTimeout(function () { el.querySelector(".link-attach-input").focus(); }, 0);
+  }
+  function runPhotoFolderSync(folderUrl) {
+    var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
+    if (!sheetSyncUrl) {
+      window.alert("동기화 주소가 설정되어 있지 않습니다.");
+      return;
+    }
+    fetch(sheetSyncUrl, {
+      method: "POST",
+      body: JSON.stringify({ action: "syncFolder", folderUrl: folderUrl })
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      if (!data || !data.ok) {
+        window.alert("실패: " + (data && data.error ? data.error : "알 수 없는 오류"));
+        return;
+      }
+      var skippedCount = Array.isArray(data.skippedRows) ? data.skippedRows.length : 0;
+      window.alert(
+        "매칭 완료: " + (data.matched || 0) + "건" +
+        (skippedCount ? ("\n일치하는 사진을 찾지 못한 행 번호: " + data.skippedRows.join(", ")) : "")
+      );
+      location.reload();
+    }).catch(function (err) {
+      window.alert("요청 실패: " + (err && err.message ? err.message : err));
+    });
+  }
+  function installPhotoFolderSyncButton() {
+    var btn = document.getElementById("dailyPhotoFolderSyncBtn");
+    if (!btn || btn.dataset.v23Bound === "1") return;
+    btn.dataset.v23Bound = "1";
+    btn.addEventListener("click", openPhotoFolderSyncModal);
+  }
   function installImageClickOpen() {
     if (window.__dailyStableImageClickInstalled) return;
     window.__dailyStableImageClickInstalled = true;
@@ -1583,6 +1658,7 @@
     installDailyDomRepair();
     installImageClickOpen();
     installDefectColorToolbar();
+    installPhotoFolderSyncButton();
     loadData();
   });
   window.addEventListener("focus", function () {
@@ -1612,6 +1688,7 @@
     installDailyDomRepair();
     installImageClickOpen();
     installDefectColorToolbar();
+    installPhotoFolderSyncButton();
     loadData();
   }
 })();
