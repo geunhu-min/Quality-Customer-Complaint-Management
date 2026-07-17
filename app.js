@@ -14349,8 +14349,7 @@ function buildClaimSummaryMeta(latestDate) {
       .then(function (res) { return res.json(); })
       .then(function (data) { applyViewOnlyUi(!!(data && data.canEdit)); })
       .catch(function () {
-        var exportBtn = document.getElementById("exportSavedLinkGroups");
-        if (exportBtn) exportBtn.hidden = true;
+        applyViewOnlyUi(false);
       });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", checkCanEdit);
