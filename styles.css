@@ -2094,9 +2094,17 @@ main {
   z-index: 3;
 }
 
+.daily-lightbox-header > div:first-child {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .daily-lightbox-name {
   font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .daily-lightbox-meta {
@@ -2108,6 +2116,7 @@ main {
 .daily-lightbox-header-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .daily-lightbox-icon-btn {
