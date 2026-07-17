@@ -2422,6 +2422,11 @@ main {
   }
 
   .app-header,
+  .dashboard-tabs {
+    position: static;
+  }
+
+  .app-header,
   main {
     min-width: 0;
   }
