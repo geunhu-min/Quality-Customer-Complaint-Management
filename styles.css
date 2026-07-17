@@ -2417,6 +2417,10 @@ main {
 }
 
 @media (max-width: 900px) {
+  body {
+    overflow-x: hidden;
+  }
+
   .app-header,
   main {
     min-width: 0;
@@ -2427,11 +2431,30 @@ main {
     flex-direction: column;
   }
 
+  .header-actions {
+    width: 100%;
+  }
+
   .upload-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .weekly-kpi-grid,
+  .weekly-visual-grid {
     grid-template-columns: 1fr;
   }
 
   .dashboard-table {
     min-width: 1180px;
+  }
+
+  .dashboard-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-tab {
+    min-width: 140px;
+    flex: 0 0 auto;
   }
 }
