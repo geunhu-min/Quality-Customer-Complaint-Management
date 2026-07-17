@@ -2462,4 +2462,13 @@ main {
     min-width: 140px;
     flex: 0 0 auto;
   }
+
+  .daily-lightbox-icon-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  .daily-lightbox-header-actions {
+    gap: 12px;
+  }
 }
