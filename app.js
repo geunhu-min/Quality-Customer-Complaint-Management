@@ -4301,6 +4301,37 @@ function weeklySourcePieItems(rows) {
   return WEEKLY_SOURCE_PIE_ORDER.map((label) => ({ label, value: counts.get(label) || 0 })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
 }
 
+function weeklyBrandPieItemsFromRows(rows) {
+  const map = new Map();
+  rows.forEach((row) => {
+    const key = row.brand || "미지정";
+    if (!map.has(key)) map.set(key, { label: key, receipts: new Set() });
+    map.get(key).receipts.add(row.receiptNo);
+  });
+  return Array.from(map.values())
+    .map((item) => ({ label: item.label, value: item.receipts.size }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+function weeklyTypeItemsForBrandFromRows(rows, brand) {
+  const map = new Map();
+  rows.filter((row) => (row.brand || "미지정") === brand).forEach((row) => {
+    const key = row.type || "미분류";
+    if (!map.has(key)) map.set(key, { label: key, receipts: new Set(), amountBase: 0 });
+    const target = map.get(key);
+    target.receipts.add(row.receiptNo);
+    target.amountBase += weeklyAmount(row);
+  });
+  return Array.from(map.values())
+    .map((item) => {
+      const count = item.receipts.size;
+      return { label: item.label, value: count, amount: item.amountBase + count * penaltyPerClaim };
+    })
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value || b.amount - a.amount || a.label.localeCompare(b.label, "ko", { numeric: true }));
+}
+
 function weeklySourcePieMarkup(items) {
   if (!items.length) return `<div class="weekly-empty-message">표시할 데이터가 없습니다.</div>`;
   const total = items.reduce((sum, item) => sum + item.value, 0);
@@ -4341,6 +4372,7 @@ function weeklyRowMeta(row, index) {
     amount: weeklyAmount(row),
     line: weeklyLineGroup(row) || "미분류",
     type: weeklyRType(row),
+    brand: weeklyBrand(row),
     item: weeklyItemName(row),
     color: weeklyItemColor(row),
     quantity: weeklyItemQuantity(row),
@@ -4990,6 +5022,13 @@ function weeklyLineGroup(row) {
 
 function weeklyReceiptNo(row) {
   return String(pick(row, ["접수번호", "접수 번호", "접수NO", "접수 No", "번호"]) || cellAt(row, 3) || cellAt(row, 0) || "").trim();
+}
+
+function weeklyBrand(row) {
+  var metaBrand = row && row.__deadlineMeta && row.__deadlineMeta.brand;
+  var direct = row && typeof row.brand === "string" ? row.brand : "";
+  var found = metaBrand || direct || pick(row, ["브랜드", "brand"]) || cellAt(row, 1) || "";
+  return String(found).trim() || "미지정";
 }
 
 function weeklyMainItem(row) {
@@ -6508,6 +6547,24 @@ function monthlyCauseSummary(rows) {
     .slice(0, 3);
 }
 
+function monthlyDefectBrandPieItems(rows) {
+  const counts = new Map();
+  const amounts = new Map();
+  rows.forEach((row) => {
+    const label = String(row.brand || "").trim() || "미지정";
+    counts.set(label, (counts.get(label) || 0) + 1);
+    amounts.set(label, (amounts.get(label) || 0) + Number(row.amount || 0));
+  });
+  return Array.from(counts.entries())
+    .map(([label, value]) => ({ label, value, amount: amounts.get(label) || 0 }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function monthlyTypeItemsForBrand(rows, brand) {
+  const scoped = rows.filter((row) => (String(row.brand || "").trim() || "미지정") === brand);
+  return monthlyTypeDetails(scoped).map((item) => ({ label: item.label, value: item.count, amount: item.amount }));
+}
+
 function monthlyTypeDetails(rows) {
   const map = new Map();
   rows.forEach((row) => {
@@ -7198,9 +7255,10 @@ function buildClaimSummaryMeta(latestDate) {
     }).join("");
   }
 
-  openTypePiePopup = function (title, items, sourceItems) {
+  openTypePiePopup = function (title, items, sourceItems, brandItems, brandTypeMap) {
     var hasSource = Array.isArray(sourceItems) && sourceItems.length > 0;
-    var popup = window.open("", "typePie_" + Date.now(), "popup=yes,width=" + (hasSource ? 1100 : 760) + ",height=640,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+    var hasBrand = Array.isArray(brandItems) && brandItems.length > 0;
+    var popup = window.open("", "typePie_" + Date.now(), "popup=yes,width=" + (hasSource ? 1100 : 760) + ",height=" + (hasBrand ? 980 : 640) + ",menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
     if (!popup) return;
     var totalCount = items.reduce(function (sum, item) { return sum + Number(item.value || 0); }, 0);
     var totalAmount = items.reduce(function (sum, item) { return sum + Number(item.amount || 0); }, 0);
@@ -7210,6 +7268,27 @@ function buildClaimSummaryMeta(latestDate) {
     var sourceTotal = hasSource ? sourceItems.reduce(function (sum, item) { return sum + Number(item.value || 0); }, 0) : 0;
     var sourceGroup = hasSource
       ? '<div class="pie-group"><div class="pie-group-title">\uC6D0\uC778\uCC98\uBCC4 \uD604\uD669</div><div class="body"><div class="donut" style="background:' + sourcePieGradientForPopup(sourceItems) + '"><b>' + numText(sourceTotal) + '\uAC74</b></div><div class="legend">' + sourcePieLegendMarkupForPopup(sourceItems) + '</div></div></div>'
+      : "";
+    var brandTotal = hasBrand ? brandItems.reduce(function (sum, item) { return sum + Number(item.value || 0); }, 0) : 0;
+    var brandGroup = hasBrand
+      ? '<div class="pie-group"><div class="pie-group-title">\uBE0C\uB79C\uB4DC\uBCC4 \uD604\uD669</div><div class="body"><div class="donut" id="brandDonut" style="background:' + weeklyPieGradient(brandItems) + '"><b>' + numText(brandTotal) + '\uAC74</b></div><div class="legend clickable" id="brandLegend"></div></div></div>'
+      : "";
+    var brandTypeGroup = hasBrand
+      ? '<div class="pie-group"><div class="pie-group-title" id="brandTypeTitle">\uBE0C\uB79C\uB4DC\uBCC4 \uC720\uD615 \uD604\uD669</div><div class="body" id="brandTypeBody"><div class="placeholder">\uC67C\uCABD "\uBE0C\uB79C\uB4DC\uBCC4 \uD604\uD669"\uC5D0\uC11C \uBE0C\uB79C\uB4DC\uB97C \uD074\uB9AD\uD558\uBA74 \uADF8 \uBE0C\uB79C\uB4DC\uC758 \uC720\uD615\uBCC4 \uBD84\uD3EC\uAC00 \uC5EC\uAE30 \uB098\uD0C0\uB0A9\uB2C8\uB2E4.</div></div></div>'
+      : "";
+    var brandScript = hasBrand
+      ? '<script>' +
+        'var brandPieColors=["#1f73e8","#f59f00","#23a455","#e55353","#7950f2","#12b886","#f06595","#495057","#15aabf","#e67700"];' +
+        'var brandItems=' + JSON.stringify(brandItems).replace(/</g, "\\u003c") + ';' +
+        'var brandTypeMap=' + JSON.stringify(brandTypeMap || {}).replace(/</g, "\\u003c") + ';' +
+        'function numText(n){return Number(n||0).toLocaleString("ko-KR");}' +
+        'function gradient(items){if(!items.length)return "#e5e7eb";var total=items.reduce(function(s,i){return s+Number(i.value||0);},0);if(!total)return "#e5e7eb";var start=0;return "conic-gradient("+items.map(function(i,idx){var end=start+(Number(i.value||0)/total)*100;var seg=brandPieColors[idx%brandPieColors.length]+" "+start.toFixed(3)+"% "+end.toFixed(3)+"%";start=end;return seg;}).join(", ")+")";}' +
+        'function legendPercent(items){var total=items.reduce(function(s,i){return s+Number(i.value||0);},0);return items.map(function(i,idx){var pct=total?Math.round((Number(i.value||0)/total)*1000)/10:0;return "<div><i style=\\"background:"+brandPieColors[idx%brandPieColors.length]+"\\"></i><span>"+i.label+"</span><em>"+numText(i.value)+"\uAC74 ("+pct+"%)</em></div>";}).join("");}' +
+        'function legendClickable(items,active){var total=items.reduce(function(s,i){return s+Number(i.value||0);},0);return items.map(function(i,idx){var pct=total?Math.round((Number(i.value||0)/total)*1000)/10:0;return "<div data-brand=\\""+i.label+"\\" class=\\""+(i.label===active?"active":"")+"\\"><i style=\\"background:"+brandPieColors[idx%brandPieColors.length]+"\\"></i><span>"+i.label+"</span><em>"+numText(i.value)+"\uAC74 ("+pct+"%)</em></div>";}).join("");}' +
+        'function renderBrandLegend(active){var el=document.getElementById("brandLegend");el.innerHTML=legendClickable(brandItems,active);Array.prototype.forEach.call(el.querySelectorAll("[data-brand]"),function(row){row.addEventListener("click",function(){showBrandType(row.getAttribute("data-brand"));});});}' +
+        'function showBrandType(brand){renderBrandLegend(brand);var items=brandTypeMap[brand]||[];var total=items.reduce(function(s,i){return s+Number(i.value||0);},0);document.getElementById("brandTypeTitle").textContent=brand+" \uC720\uD615\uBCC4 \uD604\uD669";document.getElementById("brandTypeBody").innerHTML="<div class=\\"donut\\" id=\\"brandTypeDonut\\"><b>"+numText(total)+"\uAC74</b></div><div class=\\"legend\\" id=\\"brandTypeLegend\\"></div>";document.getElementById("brandTypeDonut").style.background=gradient(items);document.getElementById("brandTypeLegend").innerHTML=legendPercent(items);}' +
+        'renderBrandLegend(null);' +
+        '<\/script>'
       : "";
     popup.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8" />' +
       '<title>' + safeText(title) + '</title><style>' +
@@ -7222,8 +7301,11 @@ function buildClaimSummaryMeta(latestDate) {
       '.body{display:flex;gap:24px;align-items:center;justify-content:center}.donut{position:relative;width:220px;height:220px;flex:0 0 220px;border-radius:50%}' +
       '.donut:after{position:absolute;inset:60px;border-radius:50%;background:#fff;content:""}.donut b{position:absolute;z-index:1;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:28px}.donut small{font-size:12px;color:#4b5563}' +
       '.legend{display:grid;gap:9px;min-width:160px;max-width:260px}.legend div{display:grid;grid-template-columns:11px minmax(52px,auto) auto;gap:4px;align-items:center}.legend i{width:11px;height:11px;border-radius:50%}.legend span{font-weight:900;font-size:13px;line-height:1.25;white-space:nowrap}.legend em{font-style:normal;color:#4b5563;font-weight:800;font-size:12.5px;white-space:nowrap}.empty{padding:40px;text-align:center;font-weight:900;color:#687482}' +
+      '.legend.clickable div{cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px}.legend.clickable div:hover{background:#f1f5f9}.legend.clickable div.active{background:#e8f1ff}.legend.clickable div.active span{color:#1f73e8}' +
+      '.placeholder{display:flex;align-items:center;justify-content:center;min-height:220px;color:#9aa3b0;font-size:13px;font-weight:700;text-align:center;padding:0 20px}' +
       '</style></head><body><header><button class="close" onclick="window.close()">\u00D7</button><h1>' + safeText(title) + '</h1></header>' +
-      '<div class="pie-groups">' + typeGroup + sourceGroup + '</div>' +
+      '<div class="pie-groups">' + typeGroup + sourceGroup + brandGroup + brandTypeGroup + '</div>' +
+      brandScript +
       '</body></html>');
     popup.document.close();
     attachEscToClose(popup);
@@ -7250,7 +7332,10 @@ function buildClaimSummaryMeta(latestDate) {
     weeklyExpandedType = "";
     renderWeeklyDefect();
     var weekRows = weeklyDashboardMetas(monthlyStatusRows()).filter(function (row) { return row.week === week; });
-    openTypePiePopup(week + " \uC720\uD615\uBCC4 \uD604\uD669", weeklyTypePieItems(week), weeklySourcePieItems(weekRows));
+    var brandItems = weeklyBrandPieItemsFromRows(weekRows);
+    var brandTypeMap = {};
+    brandItems.forEach(function (b) { brandTypeMap[b.label] = weeklyTypeItemsForBrandFromRows(weekRows, b.label); });
+    openTypePiePopup(week + " \uC720\uD615\uBCC4 \uD604\uD669", weeklyTypePieItems(week), weeklySourcePieItems(weekRows), brandItems, brandTypeMap);
   };
 
   openMonthlyDefectTypePopup = function (month) {
@@ -7262,7 +7347,10 @@ function buildClaimSummaryMeta(latestDate) {
     var items = monthlyTypeDetails(scopedRows).map(function (item) {
       return { label: item.label, value: item.count, amount: item.amount };
     });
-    openTypePiePopup(month + " \uC720\uD615\uBCC4 \uD604\uD669", items, monthlyDefectSourcePieItems(scopedRows));
+    var brandItems = monthlyDefectBrandPieItems(scopedRows);
+    var brandTypeMap = {};
+    brandItems.forEach(function (b) { brandTypeMap[b.label] = monthlyTypeItemsForBrand(scopedRows, b.label); });
+    openTypePiePopup(month + " \uC720\uD615\uBCC4 \uD604\uD669", items, monthlyDefectSourcePieItems(scopedRows), brandItems, brandTypeMap);
   };
 
   window.openBigTypePiePopup = function (title, items) {
@@ -10073,7 +10161,7 @@ function buildClaimSummaryMeta(latestDate) {
         var line = typeof lineFromDeadline === "function" ? lineFromDeadline(meta) : (typeof monthlyLineLabel === "function" ? monthlyLineLabel(meta) : clean(meta.cause) || "\uBBF8\uBD84\uB958");
         var baseAmount = Number(meta.amount || 0) - (meta.penaltyEligible === false ? PENALTY : 0);
         var cause = clean(meta.cause);
-        return { row: meta.row, sourceMeta: meta, week: weekFromMetaV7(meta, index), receiptNo: clean(meta.receiptNo) || "deadline_" + index, amount: baseAmount, line: line, type: clean(meta.type) || "\uBBF8\uBD84\uB958", item: clean(meta.item) || "\uBBF8\uBD84\uB958", color: clean(meta.color), quantity: Number(meta.quantity || 1) || 1, cause: cause, excludedCause: typeof isExcludedWeeklyCause === "function" ? isExcludedWeeklyCause(cause) : /^(VN|\.)$/i.test(cause) };
+        return { row: meta.row, sourceMeta: meta, week: weekFromMetaV7(meta, index), receiptNo: clean(meta.receiptNo) || "deadline_" + index, amount: baseAmount, line: line, type: clean(meta.type) || "\uBBF8\uBD84\uB958", brand: clean(meta.brand) || "\uBBF8\uC9C0\uC815", item: clean(meta.item) || "\uBBF8\uBD84\uB958", color: clean(meta.color), quantity: Number(meta.quantity || 1) || 1, cause: cause, excludedCause: typeof isExcludedWeeklyCause === "function" ? isExcludedWeeklyCause(cause) : /^(VN|\.)$/i.test(cause) };
       }).filter(function (meta) { return meta.week && meta.item && !meta.excludedCause; });
     }
     return previousWeeklyDashboardMetasV7 ? previousWeeklyDashboardMetasV7(rows) : [];
