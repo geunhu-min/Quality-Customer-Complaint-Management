@@ -1003,10 +1003,74 @@
     if (!data) return;
     downloadRows("일일데이터_" + (data.detailDate || "selected") + ".xlsx", data.detailRows);
   };
+  function meetingPageAoa(rows) {
+    var header = ["구분", "유형", "브랜드", "원인처", "제품코드", "색상", "LOT NO", "공급", "하자내역"];
+    var body = sortDetails(rows).map(function (r) {
+      return [r.category, r.type, r.brand, r.source, r.code, r.color, r.lot, r.supplier, r.defect];
+    });
+    return [header].concat(body);
+  }
+  window.__dailyStableExportMeeting = function () {
+    var data = currentRowsForExport();
+    if (!data || !window.XLSX) return;
+    var aoa = meetingPageAoa(data.detailRows);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "회의페이지");
+    XLSX.writeFile(wb, "회의페이지_" + (data.detailDate || "selected") + ".xlsx");
+  };
+  var weekRangeExportTarget = null;
+  function ensureWeekRangeExportModal() {
+    var el = document.getElementById("dailyWeekRangeExportModal");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "dailyWeekRangeExportModal";
+    el.className = "modal";
+    el.innerHTML =
+      '<div class="modal-dialog" style="width:min(360px,92vw)">' +
+        '<div class="modal-head"><h2 style="font-size:16px">주간데이터 다운로드 기간 선택</h2><button type="button" class="week-range-export-close">닫기</button></div>' +
+        '<label style="display:grid;gap:6px;margin-bottom:10px">' +
+          '<span>시작일</span>' +
+          '<input type="date" class="week-range-export-start link-attach-input">' +
+        '</label>' +
+        '<label style="display:grid;gap:6px;margin-bottom:14px">' +
+          '<span>종료일</span>' +
+          '<input type="date" class="week-range-export-end link-attach-input">' +
+        '</label>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px">' +
+          '<button type="button" class="week-range-export-cancel link-attach-cancel">취소</button>' +
+          '<button type="button" class="week-range-export-confirm insert-button">다운로드</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    function close() { el.classList.remove("open"); }
+    function confirmDownload() {
+      var start = el.querySelector(".week-range-export-start").value;
+      var end = el.querySelector(".week-range-export-end").value;
+      close();
+      if (!start || !end || !weekRangeExportTarget) return;
+      var rows = weekRangeExportTarget.filter(function (r) { return r.dateKey >= start && r.dateKey <= end; });
+      downloadRows("주간데이터_" + start + "_" + end + ".xlsx", rows);
+    }
+    el.addEventListener("click", function (event) { if (event.target === el) close(); });
+    el.querySelector(".week-range-export-close").addEventListener("click", close);
+    el.querySelector(".week-range-export-cancel").addEventListener("click", close);
+    el.querySelector(".week-range-export-confirm").addEventListener("click", confirmDownload);
+    document.addEventListener("keydown", function (event) {
+      if (el.classList.contains("open") && event.key === "Escape") close();
+    });
+    return el;
+  }
   window.__dailyStableExportWeek = function () {
     var data = currentRowsForExport();
     if (!data) return;
-    downloadRows("주간데이터_" + data.s.year + "-" + pad(data.s.month) + "_" + data.s.weekNo + "주.xlsx", data.weekRows);
+    window.focus();
+    weekRangeExportTarget = receiptItems;
+    var days = Array.from(new Set((data.s.week && data.s.week.days) || [])).sort();
+    var el = ensureWeekRangeExportModal();
+    el.querySelector(".week-range-export-start").value = days[0] || "";
+    el.querySelector(".week-range-export-end").value = days[days.length - 1] || "";
+    el.classList.add("open");
   };
   function openDetailExportPopup() {
     var data = currentRowsForExport();
@@ -1020,7 +1084,7 @@
     var popup = window.open("", "dailyStableDetailExportV23", "width=1280,height=760,scrollbars=yes,resizable=yes");
     if (!popup) return;
     popup.document.open();
-    popup.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>고객클레임 일일접수 내역</title><style>body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>고객클레임 일일접수 내역</h1><div class="meta">' + esc(data.s.year + "년 " + data.s.month + "월 " + data.s.weekNo + "주" + (data.detailDate ? " / " + data.detailDate : "")) + ' · 표시 ' + comma(rows.length) + '건</div><div class="toolbar"><button onclick="window.opener&&window.opener.__dailyStableExportDay()">일일데이터 엑셀 다운로드</button><button onclick="window.opener&&window.opener.__dailyStableExportWeek()">주간데이터 엑셀 다운로드</button></div><table><thead><tr><th>No</th><th>일자</th><th>구분</th><th>유형</th><th>브랜드</th><th>원인처</th><th>제품코드</th><th>색상</th><th>LOT NO</th><th>공급</th><th>하자내역</th><th>금액</th></tr></thead><tbody>' + (bodyRows || '<tr><td colspan="12">표시할 자료가 없습니다.</td></tr>') + '</tbody></table></body></html>');
+    popup.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>고객클레임 일일접수 내역</title><style>body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;margin:18px;color:#0f172a}h1{font-size:22px;margin:0 0 8px}.toolbar{display:flex;gap:8px;margin:12px 0 14px}button{height:34px;padding:0 12px;border:1px solid #b9c7d8;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #d9e2ec;padding:8px;text-align:center;vertical-align:middle}th{background:#eef1f4;font-weight:900}.left{text-align:left;white-space:pre-wrap}.meta{color:#475569;font-size:13px}</style></head><body><h1>고객클레임 일일접수 내역</h1><div class="meta">' + esc(data.s.year + "년 " + data.s.month + "월 " + data.s.weekNo + "주" + (data.detailDate ? " / " + data.detailDate : "")) + ' · 표시 ' + comma(rows.length) + '건</div><div class="toolbar"><button onclick="window.opener&&window.opener.__dailyStableExportMeeting()">회의페이지 다운로드</button><button onclick="window.opener&&window.opener.__dailyStableExportDay()">일일데이터 엑셀 다운로드</button><button onclick="window.opener&&window.opener.__dailyStableExportWeek();window.close()">주간데이터 엑셀 다운로드</button></div><table><thead><tr><th>No</th><th>일자</th><th>구분</th><th>유형</th><th>브랜드</th><th>원인처</th><th>제품코드</th><th>색상</th><th>LOT NO</th><th>공급</th><th>하자내역</th><th>금액</th></tr></thead><tbody>' + (bodyRows || '<tr><td colspan="12">표시할 자료가 없습니다.</td></tr>') + '</tbody></table></body></html>');
     popup.document.close();
     attachEscToClose(popup);
   }
