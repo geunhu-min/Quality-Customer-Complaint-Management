@@ -308,11 +308,29 @@
     var p = d.split("-");
     return (+p[1]) + "월" + (+p[2]) + "일 클레임";
   }
+  function dayBrandPieItems(rows) {
+    var map = new Map();
+    rows.forEach(function (r) {
+      var label = r.brand || "미지정";
+      var cur = map.get(label) || { label: label, value: 0, amount: 0 };
+      cur.value += 1;
+      cur.amount += r.amount || 0;
+      map.set(label, cur);
+    });
+    return Array.from(map.values()).filter(function (item) { return item.value > 0; }).sort(function (a, b) { return b.value - a.value; });
+  }
+  function dayTypeItemsForBrand(rows, brand) {
+    var scoped = rows.filter(function (r) { return (r.brand || "미지정") === brand; });
+    return dayTypePieItems(scoped).filter(function (item) { return item.value > 0; });
+  }
   function openDailyDayTypePopup(d) {
     var dayRows = receiptItems.filter(function (r) { return r.dateKey === d; });
     var items = dayTypePieItems(dayRows);
     var sourceItems = sourcePieItems(dayRows);
-    if (typeof window.openTypePiePopup === "function") window.openTypePiePopup(dayPopupTitle(d), items, sourceItems);
+    var brandItems = dayBrandPieItems(dayRows);
+    var brandTypeMap = {};
+    brandItems.forEach(function (b) { brandTypeMap[b.label] = dayTypeItemsForBrand(dayRows, b.label); });
+    if (typeof window.openTypePiePopup === "function") window.openTypePiePopup(dayPopupTitle(d), items, sourceItems, brandItems, brandTypeMap);
   }
   window.__dailyStableOpenDayTypePopup = openDailyDayTypePopup;
   function dailyAmountShort(amount) {
