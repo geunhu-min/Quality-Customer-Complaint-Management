@@ -1008,54 +1008,6 @@ main {
   font-weight: 900;
 }
 
-.defect-desc[contenteditable="true"] {
-  outline: none;
-  caret-color: transparent;
-}
-
-.defect-color-toolbar {
-  position: fixed;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  background: #20242b;
-  border-radius: 10px;
-  padding: 6px 8px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .28);
-  z-index: 4000;
-}
-
-.defect-color-toolbar.show {
-  display: flex;
-}
-
-.defect-color-toolbar button {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, .3);
-  cursor: pointer;
-  padding: 0;
-}
-
-.defect-color-toolbar button:hover {
-  border-color: #fff;
-}
-
-.defect-color-toolbar .defect-color-clear {
-  background: #111827;
-  color: #fff;
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.defect-color-toolbar .defect-color-sep {
-  width: 1px;
-  height: 16px;
-  background: rgba(255, 255, 255, .25);
-  margin: 0 2px;
-}
-
 .weekly-detail-panel {
   display: grid;
   gap: 12px;

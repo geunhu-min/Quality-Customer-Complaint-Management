@@ -616,16 +616,13 @@
   function normalizeMatchKey(v) {
     return txt(v).replace(/[^0-9A-Za-z가-힣]/g, "").toUpperCase();
   }
-  var DEFECT_COLOR_STORAGE_KEY = "qualityClaimDashboard.defectColors.v1";
-  var defectColorMap = (function () {
-    try { return JSON.parse(localStorage.getItem(DEFECT_COLOR_STORAGE_KEY) || "{}") || {}; } catch (_) { return {}; }
-  })();
-  function saveDefectColorMap() {
-    try { localStorage.setItem(DEFECT_COLOR_STORAGE_KEY, JSON.stringify(defectColorMap)); } catch (_) {}
-  }
   function defectDescMarkup(r, key) {
-    var stored = defectColorMap[key];
-    return stored != null ? stored : esc(r.defect).replace(/\n/g, "<br>");
+    var lines = esc(r.defect).split("\n");
+    return lines.map(function (line) {
+      if (line.indexOf("회수 확인 필요") >= 0) return '<b style="color:#1971c2">' + line + '</b>';
+      if (line.indexOf("이의제기") >= 0) return '<b style="color:#e03131">' + line + '</b>';
+      return line;
+    }).join("<br>");
   }
   function imageSequenceNo(name) {
     var s = txt(name);
@@ -1458,89 +1455,6 @@
     if (item.id) deleteAttachedImage(item.id);
     scheduleStableRender();
   }
-  var defectColorSavedRange = null;
-  function ensureDefectColorToolbar() {
-    var bar = document.getElementById("defectColorToolbar");
-    if (bar) return bar;
-    bar = document.createElement("div");
-    bar.id = "defectColorToolbar";
-    bar.className = "defect-color-toolbar";
-    bar.innerHTML =
-      '<button type="button" data-color="#e03131" title="빨강"></button>' +
-      '<button type="button" data-color="#1971c2" title="파랑"></button>' +
-      '<button type="button" data-color="#2f9e44" title="초록"></button>' +
-      '<button type="button" data-color="#f08c00" title="주황"></button>' +
-      '<button type="button" data-color="#9c36b5" title="보라"></button>' +
-      '<span class="defect-color-sep"></span>' +
-      '<button type="button" class="defect-color-clear" data-color="" title="색상 지우기">⌀</button>';
-    document.body.appendChild(bar);
-    Array.prototype.forEach.call(bar.querySelectorAll("button"), function (btn) {
-      if (btn.getAttribute("data-color")) btn.style.background = btn.getAttribute("data-color");
-      btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
-      btn.addEventListener("click", function () { applyDefectColor(btn.getAttribute("data-color")); });
-    });
-    return bar;
-  }
-  function hideDefectColorToolbar() {
-    var bar = document.getElementById("defectColorToolbar");
-    if (bar) bar.classList.remove("show");
-    defectColorSavedRange = null;
-  }
-  function applyDefectColor(color) {
-    if (!defectColorSavedRange) return;
-    var range = defectColorSavedRange;
-    var container = range.commonAncestorContainer;
-    var startEl = container.nodeType === 1 ? container : container.parentElement;
-    var cell = startEl && startEl.closest ? startEl.closest(".defect-desc") : null;
-    if (!cell) { hideDefectColorToolbar(); return; }
-    cell.setAttribute("contenteditable", "true");
-    cell.focus();
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    try {
-      document.execCommand("styleWithCSS", false, true);
-      if (color) {
-        document.execCommand("foreColor", false, color);
-      } else {
-        document.execCommand("removeFormat");
-      }
-    } catch (_) {}
-    sel.removeAllRanges();
-    cell.removeAttribute("contenteditable");
-    var key = cell.getAttribute("data-defect-key");
-    if (key) {
-      defectColorMap[key] = cell.innerHTML;
-      saveDefectColorMap();
-    }
-    hideDefectColorToolbar();
-  }
-  function installDefectColorToolbar() {
-    if (window.__dailyStableDefectColorInstalled) return;
-    window.__dailyStableDefectColorInstalled = true;
-    document.addEventListener("mouseup", function (event) {
-      var toolbar = document.getElementById("defectColorToolbar");
-      if (toolbar && toolbar.contains(event.target)) return;
-      var sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !sel.toString().trim()) { hideDefectColorToolbar(); return; }
-      var anchorEl = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
-      var cell = anchorEl && anchorEl.closest && anchorEl.closest(".defect-desc");
-      if (!cell) { hideDefectColorToolbar(); return; }
-      var range = sel.getRangeAt(0);
-      defectColorSavedRange = range.cloneRange();
-      var bar = ensureDefectColorToolbar();
-      var rect = range.getBoundingClientRect();
-      bar.style.left = Math.max(8, rect.left + rect.width / 2 - 90) + "px";
-      bar.style.top = Math.max(8, rect.top - 44) + "px";
-      bar.classList.add("show");
-    });
-    document.addEventListener("mousedown", function (event) {
-      var toolbar = document.getElementById("defectColorToolbar");
-      if (toolbar && !toolbar.contains(event.target) && !(event.target.closest && event.target.closest(".defect-desc"))) {
-        hideDefectColorToolbar();
-      }
-    });
-  }
   function ensureLinkAttachModal() {
     var el = document.getElementById("dailyLinkAttachModal");
     if (el) return el;
@@ -1743,7 +1657,6 @@
     installDailyRenderOwnership();
     installDailyDomRepair();
     installImageClickOpen();
-    installDefectColorToolbar();
     installPhotoFolderSyncButton();
     loadData();
   });
@@ -1773,7 +1686,6 @@
     installDailyRenderOwnership();
     installDailyDomRepair();
     installImageClickOpen();
-    installDefectColorToolbar();
     installPhotoFolderSyncButton();
     loadData();
   }
