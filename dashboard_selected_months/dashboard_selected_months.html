@@ -1434,8 +1434,9 @@ function openDominantProductSummary(){
     const code=String(r["제품코드"]||"").trim();
     if(!code)return;
     const color=String(r["색상"]||"미기재").trim()||"미기재";
+    const brand=String(r["브랜드"]||"").trim()||"-";
     const key=code+"||"+color;
-    if(!map[key])map[key]={code,color,count:0,amount:0};
+    if(!map[key])map[key]={code,color,brand,count:0,amount:0};
     map[key].count+=1;
     map[key].amount+=num(r["금액"])+PENALTY;
   });
@@ -1448,8 +1449,8 @@ function openDominantProductSummary(){
   });
 
   currentBrandSummaryExport={
-    headers:["순번","제품코드","색상","건수합계","금액합계"],
-    values:summary.map((s,i)=>[i+1,s.code,s.color,s.count,s.amount]),
+    headers:["순번","브랜드","제품코드","색상","건수합계","금액합계"],
+    values:summary.map((s,i)=>[i+1,s.brand,s.code,s.color,s.count,s.amount]),
     fileName:`${active}_다발품목리스트_이력.xlsx`.replace(/[\\/:*?"<>|]/g,"_")
   };
   const rawCols=["유형","세부유형","포장","브랜드","제품코드","색상","수량","금액","하자상세"];
@@ -1460,8 +1461,8 @@ function openDominantProductSummary(){
     fileName:`${active}_다발품목리스트_원본데이터.xlsx`.replace(/[\\/:*?"<>|]/g,"_")
   };
 
-  const bodyRows=summary.map((s,i)=>`<tr><td>${i+1}</td><td class="left">${escHtml(s.code)}</td><td class="left">${escHtml(s.color)}</td><td>${s.count.toLocaleString()}건</td><td>₩ ${Math.round(s.amount).toLocaleString()}</td></tr>`).join("")
-    || `<tr><td colspan="5">표시할 자료가 없습니다.</td></tr>`;
+  const bodyRows=summary.map((s,i)=>`<tr><td>${i+1}</td><td class="left">${escHtml(s.brand)}</td><td class="left">${escHtml(s.code)}</td><td class="left">${escHtml(s.color)}</td><td>${s.count.toLocaleString()}건</td><td>₩ ${Math.round(s.amount).toLocaleString()}</td></tr>`).join("")
+    || `<tr><td colspan="6">표시할 자료가 없습니다.</td></tr>`;
 
   const popup=window.open("","claimAccumDominantProduct_"+Date.now(),"popup=yes,width=900,height=700,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
   if(!popup)return;
@@ -1483,7 +1484,7 @@ function openDominantProductSummary(){
       <button onclick="window.opener&&window.opener.downloadBrandSummaryExcel()">이력 엑셀 다운로드</button>
       <button onclick="window.opener&&window.opener.downloadBrandRawExcel()">원본 엑셀 다운로드</button>
     </div>
-    <table><thead><tr><th>순번</th><th>제품코드</th><th>색상</th><th>건수합계</th><th>금액합계</th></tr></thead><tbody>${bodyRows}</tbody></table>
+    <table><thead><tr><th>순번</th><th>브랜드</th><th>제품코드</th><th>색상</th><th>건수합계</th><th>금액합계</th></tr></thead><tbody>${bodyRows}</tbody></table>
   </body></html>`);
   popup.document.close();
   attachEscToClose(popup);
