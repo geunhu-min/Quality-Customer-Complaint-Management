@@ -831,6 +831,7 @@
       'body{margin:0;padding:20px;color:#111827;background:#f7f7f7;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif}' +
       'header{position:relative;padding:22px 30px;margin-bottom:18px;border-radius:18px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10)}' +
       'h1{margin:0;font-size:36px}.close{position:absolute;right:18px;top:16px;border:0;background:transparent;font-size:44px;font-weight:900;cursor:pointer}' +
+      '.history-download{position:absolute;right:90px;top:24px;border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:10px 18px;font-size:20px;font-weight:800;cursor:pointer;color:#1d4ed8}' +
       '.kpi-panel{background:#e9edf5;border-radius:18px;padding:24px}' +
       '.kpi-grid{display:flex;gap:22px}' +
       '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:10px;padding:22px 24px}' +
@@ -843,7 +844,7 @@
       '.kpi-tags{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}' +
       '.kpi-tags span{display:inline-flex;align-items:center;gap:4px;background:#eef1f7;border-radius:20px;padding:6px 16px;font-size:23px;font-weight:700;color:#374151}' +
       '.kpi-tags span b{font-weight:900}' +
-      '</style></head><body><header><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
+      '</style></head><body><header><button class="history-download" onclick="if(window.opener && window.opener.__dailyStableExportWeeklyReceipt){window.opener.__dailyStableExportWeeklyReceipt();}">이력 다운로드</button><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
       '<div class="kpi-panel"><div class="kpi-grid">' +
         '<div class="kpi"><span>접수건수</span><strong>' + comma(total) + '</strong><em>건</em><small>선택 조건 기준</small><div class="cat-breakdown">' + catHtml + '</div></div>' +
         '<div class="kpi"><span>손실금액</span><strong>' + comma(loss) + '</strong><em>원</em><small>R열 합계 금액 기준</small></div>' +
@@ -853,6 +854,12 @@
       '</body></html>');
     popup.document.close();
   }
+  function downloadWeeklyReceiptExcel() {
+    if (!window.XLSX || !lastWeeklyReceiptRows.length) return;
+    var safeTitle = String(lastWeeklyReceiptPopupTitle || "selected").replace(/[\\/:*?"<>|]/g, "");
+    downloadRows("고객클레임_주간접수내역_" + safeTitle + ".xlsx", lastWeeklyReceiptRows);
+  }
+  window.__dailyStableExportWeeklyReceipt = downloadWeeklyReceiptExcel;
   function render(force) {
     var s = selected();
     if (!s) return;
