@@ -832,6 +832,7 @@
       'header{position:relative;padding:22px 30px;margin-bottom:18px;border-radius:18px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10)}' +
       'h1{margin:0;font-size:36px}.close{position:absolute;right:18px;top:16px;border:0;background:transparent;font-size:44px;font-weight:900;cursor:pointer}' +
       '.history-download{position:absolute;right:90px;top:24px;border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:10px 18px;font-size:20px;font-weight:800;cursor:pointer;color:#1d4ed8}' +
+      '.dominant-download{position:absolute;right:260px;top:24px;border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:10px 18px;font-size:20px;font-weight:800;cursor:pointer;color:#1d4ed8}' +
       '.kpi-panel{background:#e9edf5;border-radius:18px;padding:24px}' +
       '.kpi-grid{display:flex;gap:22px}' +
       '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:10px;padding:22px 24px}' +
@@ -844,7 +845,7 @@
       '.kpi-tags{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}' +
       '.kpi-tags span{display:inline-flex;align-items:center;gap:4px;background:#eef1f7;border-radius:20px;padding:6px 16px;font-size:23px;font-weight:700;color:#374151}' +
       '.kpi-tags span b{font-weight:900}' +
-      '</style></head><body><header><button class="history-download" onclick="if(window.opener && window.opener.__dailyStableExportWeeklyReceipt){window.opener.__dailyStableExportWeeklyReceipt();}">이력 다운로드</button><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
+      '</style></head><body><header><button class="dominant-download" onclick="if(window.opener && window.opener.__dailyStableOpenWeeklyReceiptDominant){window.opener.__dailyStableOpenWeeklyReceiptDominant();}">접수 다발품목</button><button class="history-download" onclick="if(window.opener && window.opener.__dailyStableExportWeeklyReceipt){window.opener.__dailyStableExportWeeklyReceipt();}">이력 다운로드</button><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
       '<div class="kpi-panel"><div class="kpi-grid">' +
         '<div class="kpi"><span>접수건수</span><strong>' + comma(total) + '</strong><em>건</em><small>선택 조건 기준</small><div class="cat-breakdown">' + catHtml + '</div></div>' +
         '<div class="kpi"><span>손실금액</span><strong>' + comma(loss) + '</strong><em>원</em><small>R열 합계 금액 기준</small></div>' +
@@ -860,6 +861,39 @@
     downloadRows("고객클레임_주간접수내역_" + safeTitle + ".xlsx", lastWeeklyReceiptRows);
   }
   window.__dailyStableExportWeeklyReceipt = downloadWeeklyReceiptExcel;
+  function weeklyReceiptDominantItems(rows) {
+    var map = new Map();
+    rows.forEach(function (r) {
+      var code = r.code || "-";
+      var color = r.color || "-";
+      var key = code + "||" + color;
+      if (!map.has(key)) map.set(key, { brand: r.brand || "-", code: code, color: color, qty: 0, types: new Map() });
+      var g = map.get(key);
+      g.qty += r.quantity || 0;
+      var t = r.type || "-";
+      g.types.set(t, (g.types.get(t) || 0) + 1);
+    });
+    return Array.from(map.values()).sort(function (a, b) { return b.qty - a.qty; });
+  }
+  function downloadWeeklyReceiptDominantExcel() {
+    if (!window.XLSX) return;
+    var items = weeklyReceiptDominantItems(lastWeeklyReceiptRows);
+    var header = ["순번", "구분", "부품코드", "색상", "수량합계", "비고"];
+    var body = items.map(function (item, i) {
+      var remark = Array.from(item.types.entries())
+        .sort(function (a, b) { return b[1] - a[1]; })
+        .map(function (entry) { return entry[0] + "(" + entry[1] + ")"; })
+        .join(" ");
+      return [i + 1, item.brand, item.code, item.color, item.qty, remark];
+    });
+    var aoa = [header].concat(body);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "접수다발품목");
+    var safeTitle = String(lastWeeklyReceiptPopupTitle || "selected").replace(/[\\/:*?"<>|]/g, "");
+    XLSX.writeFile(wb, "접수다발품목_" + safeTitle + ".xlsx");
+  }
+  window.__dailyStableOpenWeeklyReceiptDominant = downloadWeeklyReceiptDominantExcel;
   function render(force) {
     var s = selected();
     if (!s) return;
