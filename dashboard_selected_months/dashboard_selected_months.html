@@ -1105,6 +1105,11 @@ async function importClosingLinkGroup(group){
     seenUrls.add(url);
     return true;
   });
+  const seedExcludedByMonth=new Map();
+  entries.forEach(entry=>{
+    const m=parseMonthFromText(entry.label||"")||parseMonthFromText(entry.sourceSheet||"");
+    if(m && entry.excluded!==undefined) seedExcludedByMonth.set(m,Number(entry.excluded||0));
+  });
   const results=await Promise.all(uniqueEntries.map(async(entry)=>{
     const url=entry.sourceUrl||group.sourceUrl;
     if(!url)return 0;
@@ -1119,7 +1124,8 @@ async function importClosingLinkGroup(group){
           if(!month)return;
           const rows=rowsFromSheet(wb.Sheets[sheetName]);
           const prevExcluded=Number(dashboard.years[year]?.[month]?.excludePenaltyCount||0);
-          const excludePenaltyCount=storedExclusion(year,month,prevExcluded,rows.length);
+          const seedExcluded=seedExcludedByMonth.has(month)?seedExcludedByMonth.get(month):0;
+          const excludePenaltyCount=storedExclusion(year,month,prevExcluded||seedExcluded,rows.length);
           dashboard.years[year][month]={rows,count:rows.length,excludePenaltyCount,amount:calcAmount(rows,excludePenaltyCount)};
           savedHere++;
         });
