@@ -1098,7 +1098,14 @@ function savedClosingLinkGroups(){
 }
 async function importClosingLinkGroup(group){
   const entries=(group.entries&&group.entries.length)?group.entries:[{sourceUrl:group.sourceUrl,label:group.label||""}];
-  const results=await Promise.all(entries.map(async(entry)=>{
+  const seenUrls=new Set();
+  const uniqueEntries=entries.filter(entry=>{
+    const url=entry.sourceUrl||group.sourceUrl;
+    if(!url||seenUrls.has(url))return false;
+    seenUrls.add(url);
+    return true;
+  });
+  const results=await Promise.all(uniqueEntries.map(async(entry)=>{
     const url=entry.sourceUrl||group.sourceUrl;
     if(!url)return 0;
     try{
