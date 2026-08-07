@@ -1075,10 +1075,18 @@ async function handleSpreadsheetUrlUpload(){
     alert("스프레드시트 업로드 오류: "+err.message);
   }
 }
+function migrateStaleExistingDataGroups(groups){
+  const targetKeys=new Set(["existing-25-cost","existing-26-cost"]);
+  const isWebAppUrl=url=>/script\.google(?:usercontent)?\.com\/macros\/s\//.test(String(url||""));
+  const hasStaleGroup=groups.some(group=>targetKeys.has(group.groupKey)&&!isWebAppUrl(group.sourceUrl));
+  if(!hasStaleGroup)return groups;
+  const freshSeedGroups=SEED_CLOSING_LINK_GROUPS.filter(group=>targetKeys.has(group.groupKey));
+  return groups.filter(group=>!targetKeys.has(group.groupKey)).concat(freshSeedGroups);
+}
 function savedClosingLinkGroups(){
   let payload=null;
   try{payload=JSON.parse(localStorage.getItem(LINK_STORAGE_KEY)||"null")}catch{payload=null}
-  let rawGroups=(payload?.groups||[]).filter(group=>group?.sourceUrl && group.kind==="cost");
+  let rawGroups=migrateStaleExistingDataGroups(payload?.groups||[]).filter(group=>group?.sourceUrl && group.kind==="cost");
   if(!rawGroups.length) rawGroups=SEED_CLOSING_LINK_GROUPS.filter(group=>group?.sourceUrl && group.kind==="cost");
   return rawGroups
     .map(group=>({

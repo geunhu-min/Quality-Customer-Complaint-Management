@@ -6169,6 +6169,14 @@ function clearSavedDashboardState() {
   clearImagesFromDb();
 }
 
+function migrateStaleExistingDataGroups(groups) {
+  const targetKeys = new Set(["existing-25-cost", "existing-26-cost"]);
+  const hasStaleGroup = groups.some((group) => targetKeys.has(group.groupKey) && !isAppsScriptWebAppUrl(group.sourceUrl));
+  if (!hasStaleGroup) return groups;
+  const freshSeedGroups = SEED_SAVED_LINK_GROUPS.filter((group) => targetKeys.has(group.groupKey));
+  return groups.filter((group) => !targetKeys.has(group.groupKey)).concat(freshSeedGroups);
+}
+
 async function restoreSavedDashboardState() {
   const raw = localStorage.getItem(dashboardStorageKey);
   let payload = null;
@@ -6180,6 +6188,7 @@ async function restoreSavedDashboardState() {
       payload = null;
     }
   }
+  if (payload?.groups?.length) payload = { ...payload, groups: migrateStaleExistingDataGroups(payload.groups) };
   if (!payload?.groups?.length && !payload?.images?.length && !payload?.viewSnapshot) {
     if (!SEED_SAVED_LINK_GROUPS.length) return false;
     payload = { groups: SEED_SAVED_LINK_GROUPS };
