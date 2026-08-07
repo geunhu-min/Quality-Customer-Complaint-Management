@@ -1015,6 +1015,19 @@ async function fetchWorkbookFromUrl(url){
     const text=await res.text();
     return {wb:XLSX.read(text,{type:"string"}), title:""};
   }
+  const isWebApp=/script\.google(?:usercontent)?\.com\/macros\/s\//.test(url);
+  if(isWebApp){
+    const res=await fetch(url,{cache:"no-store"});
+    if(!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
+    const data=await res.json().catch(()=>null);
+    if(!data||data.ok===false) throw new Error((data&&data.error)||"웹앱 응답을 읽지 못했습니다.");
+    const wb=XLSX.utils.book_new();
+    Object.keys(data.months||{}).forEach(monthLabel=>{
+      const sheet=XLSX.utils.aoa_to_sheet(data.months[monthLabel]);
+      XLSX.utils.book_append_sheet(wb,sheet,monthLabel);
+    });
+    return {wb, title:""};
+  }
   const res=await fetch("/api/google-workbook?url="+encodeURIComponent(url));
   if(!res.ok){
     const err=await res.json().catch(()=>({error:"스프레드시트를 불러오지 못했습니다."}));

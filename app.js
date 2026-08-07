@@ -541,9 +541,10 @@ function bindDataInsert() {
   });
   document.getElementById("clearReceiptDataLink")?.addEventListener("click", () => clearLinkedGroup("26-summary", "receiptDataLink"));
 
-  document.getElementById("loadExistingDataPublish")?.addEventListener("click", loadExistingDataBulk);
-  document.getElementById("clearExistingDataPublishLink")?.addEventListener("click", deleteExistingDataBulk);
-  document.getElementById("existingDataPublishYear")?.addEventListener("change", populateExistingDataBulkInput);
+  document.getElementById("loadExistingData25WebApp")?.addEventListener("click", () => loadExistingDataWebApp("2025"));
+  document.getElementById("clearExistingData25WebApp")?.addEventListener("click", () => deleteExistingDataWebApp("2025"));
+  document.getElementById("loadExistingData26WebApp")?.addEventListener("click", () => loadExistingDataWebApp("2026"));
+  document.getElementById("clearExistingData26WebApp")?.addEventListener("click", () => deleteExistingDataWebApp("2026"));
   document.getElementById("loadReceiptHistoryPublish")?.addEventListener("click", () => {
     loadPublishedCsvLink({
       inputId: "receiptHistoryPublishLink",
@@ -706,6 +707,114 @@ async function fetchPublishedCsvMonthlyDataSets(lines, label, year) {
   return results;
 }
 
+async function fetchExistingDataFromWebApp(url, year) {
+  if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
+  const data = await res.json().catch(() => null);
+  if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
+  const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const documentTitle = year ? `${year}년 마감자료` : "";
+  const months = data.months || {};
+  const results = monthLabels
+    .filter((monthLabel) => Array.isArray(months[monthLabel]) && months[monthLabel].length)
+    .map((monthLabel) => {
+      const sheet = XLSX.utils.aoa_to_sheet(months[monthLabel]);
+      const rows = deadlineRowsFromSheet(sheet).map((row) => {
+        row.__sheetTitle = monthLabel;
+        return row;
+      });
+      return {
+        label: monthLabel,
+        fileName: url,
+        sheetName: monthLabel,
+        documentTitle,
+        countHint: rows.length,
+        defectAmount: sumDeadlineAmount(rows),
+        rows
+      };
+    });
+  if (!results.length) throw new Error('월별("N월") 시트를 찾지 못했습니다.');
+  return results;
+}
+
+async function loadExistingDataWebApp(year) {
+  const inputId = existingDataWebAppInputId(year);
+  const input = document.getElementById(inputId);
+  const url = input?.value.trim();
+  if (!url) {
+    alert("웹앱 URL을 입력해 주세요.");
+    return;
+  }
+  const groupKey = existingDataGroupKeyForYear(year);
+  const groupTitle = `${year}년 마감자료`;
+  try {
+    const dataSets = await fetchExistingDataFromWebApp(url, year);
+    state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
+    let entry = null;
+    dataSets.forEach((dataSet) => {
+      entry = addUploadEntry({
+        kind: "cost",
+        fileName: dataSet.fileName || url,
+        label: dataSet.label,
+        rows: normalizeRows(dataSet.rows, "cost"),
+        countHint: dataSet.countHint,
+        defectAmount: dataSet.defectAmount,
+        sourceUrl: url,
+        sourceSheet: dataSet.sheetName || "",
+        selected: true,
+        excluded: 0,
+        sourceType: "spreadsheet-link",
+        groupKey,
+        groupTitle,
+        order: Number(year)
+      });
+    });
+    activeUploadId = entry?.id || activeUploadId;
+    rebuildFromSelection();
+    renderAll(`${groupTitle} 연결 완료`);
+    saveDashboardState();
+    fillSavedLinkInputs();
+    renderLinkedDataList();
+    refreshClaimAccumFrame();
+    alert(`${groupTitle} 삽입 완료 (${dataSets.length}개월, 총 ${dataSets.reduce((sum, d) => sum + (d.countHint || 0), 0)}건)`);
+  } catch (err) {
+    alert(`웹앱 불러오기 실패: ${err.message}`);
+  }
+}
+
+function deleteExistingDataWebApp(year) {
+  const groupKey = existingDataGroupKeyForYear(year);
+  const hasData = state.uploads.some((entry) => entry.groupKey === groupKey) ||
+    savedLinkGroupsCache.some((group) => (group.groupKey || group.sourceUrl) === groupKey);
+  if (!hasData) {
+    alert(`${year}년 마감자료가 없습니다.`);
+    return;
+  }
+  if (!confirm(`${year}년 마감자료를 전부 삭제할까요?`)) return;
+  state.uploads.filter((entry) => entry.groupKey === groupKey).forEach(revokeEntryImages);
+  state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
+  removeCachedLinkedGroups([groupKey]);
+  activeUploadId = state.uploads[0]?.id || "sample";
+  renderAll(`${year}년 마감자료 삭제 완료`);
+  saveDashboardState();
+  fillSavedLinkInputs();
+  renderLinkedDataList();
+  refreshClaimAccumFrame();
+  alert(`${year}년 마감자료 삭제 완료`);
+}
+
+function existingDataWebAppInputId(year) {
+  return `existingData${String(year).slice(-2)}WebAppLink`;
+}
+
+function populateExistingDataWebAppInput(year) {
+  const input = document.getElementById(existingDataWebAppInputId(year));
+  if (!input) return;
+  const group = existingDataGroupForYear(year);
+  input.value = group?.items?.find((item) => item.sourceUrl)?.sourceUrl || "";
+}
+
 async function loadPublishedCsvLink({ inputId, kind, label, groupKey, groupTitle, order, year }) {
   const input = document.getElementById(inputId);
   const url = input?.value.trim();
@@ -771,7 +880,8 @@ function fillSavedLinkInputs() {
   const receiptHistoryGroups = linkedGroupsForInput("receipt-history");
   setInputValue("receiptDataLink", "");
   setInputValue("receiptHistoryPublishLink", "");
-  populateExistingDataBulkInput();
+  populateExistingDataWebAppInput("2025");
+  populateExistingDataWebAppInput("2026");
   setInputStatus("receiptDataLink", receiptGroups);
   setInputStatus("receiptHistoryPublishLink", receiptHistoryGroups, "https://docs.google.com/spreadsheets/d/e/.../pub?output=csv");
   renderLinkedDataList();
@@ -788,19 +898,6 @@ function existingDataGroupForYear(year) {
   return allLinkedDisplayGroups().find((group) => group.key === groupKey) || null;
 }
 
-function populateExistingDataBulkInput() {
-  const yearSel = document.getElementById("existingDataPublishYear");
-  const input = document.getElementById("existingDataPublishLink");
-  if (!input) return;
-  const group = existingDataGroupForYear(yearSel?.value);
-  const items = group ? (group.items || []) : [];
-  if (items.length > 1) {
-    input.value = items.filter((item) => item.sourceUrl).map((item) => item.sourceUrl).join("\n");
-  } else {
-    input.value = items[0]?.sourceUrl || "";
-  }
-}
-
 function refreshClaimAccumFrame() {
   const frame = document.querySelector(".defect-close-frame");
   const win = frame?.contentWindow;
@@ -812,80 +909,6 @@ function refreshClaimAccumFrame() {
       }).catch(() => {});
     }
   } catch (_) {}
-}
-
-async function loadExistingDataBulk() {
-  const yearSel = document.getElementById("existingDataPublishYear");
-  const input = document.getElementById("existingDataPublishLink");
-  const year = yearSel?.value || "";
-  const raw = input?.value.trim();
-  if (!year) {
-    alert("연도를 선택해 주세요.");
-    return;
-  }
-  if (!raw) {
-    alert("웹에 게시 주소를 입력해 주세요.");
-    return;
-  }
-  const groupKey = existingDataGroupKeyForYear(year);
-  const groupTitle = `${year}년 마감자료`;
-  try {
-    const dataSets = await fetchPublishedCsvDataSet(raw, "cost", "기존데이터", year);
-    state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
-    let entry = null;
-    dataSets.forEach((dataSet) => {
-      entry = addUploadEntry({
-        kind: "cost",
-        fileName: dataSet.fileName || raw,
-        label: dataSet.label,
-        rows: normalizeRows(dataSet.rows, "cost"),
-        countHint: dataSet.countHint,
-        defectAmount: dataSet.defectAmount,
-        sourceUrl: dataSet.fileName || raw,
-        sourceSheet: dataSet.sheetName || "",
-        selected: true,
-        excluded: 0,
-        sourceType: "spreadsheet-link",
-        groupKey,
-        groupTitle,
-        order: Number(year)
-      });
-    });
-    activeUploadId = entry?.id || activeUploadId;
-    rebuildFromSelection();
-    renderAll(`${groupTitle} 연결 완료`);
-    saveDashboardState();
-    fillSavedLinkInputs();
-    renderLinkedDataList();
-    refreshClaimAccumFrame();
-    alert(`${groupTitle} 삽입 완료 (${dataSets.length}개월, 총 ${dataSets.reduce((sum, d) => sum + (d.countHint || 0), 0)}건)`);
-  } catch (err) {
-    alert(`웹게시 링크 불러오기 실패: ${err.message}`);
-  }
-}
-
-function deleteExistingDataBulk() {
-  const yearSel = document.getElementById("existingDataPublishYear");
-  const year = yearSel?.value || "";
-  if (!year) return;
-  const groupKey = existingDataGroupKeyForYear(year);
-  const hasData = state.uploads.some((entry) => entry.groupKey === groupKey) ||
-    savedLinkGroupsCache.some((group) => (group.groupKey || group.sourceUrl) === groupKey);
-  if (!hasData) {
-    alert(`${year}년 마감자료가 없습니다.`);
-    return;
-  }
-  if (!confirm(`${year}년 마감자료를 전부 삭제할까요?`)) return;
-  state.uploads.filter((entry) => entry.groupKey === groupKey).forEach(revokeEntryImages);
-  state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
-  removeCachedLinkedGroups([groupKey]);
-  activeUploadId = state.uploads[0]?.id || "sample";
-  renderAll(`${year}년 마감자료 삭제 완료`);
-  saveDashboardState();
-  fillSavedLinkInputs();
-  renderLinkedDataList();
-  refreshClaimAccumFrame();
-  alert(`${year}년 마감자료 삭제 완료`);
 }
 
 function setInputValue(inputId, value) {
@@ -1075,6 +1098,9 @@ async function fetchSpreadsheetDataSets(url, kind, label) {
   if (isPublishedCsvUrl(url)) {
     return fetchPublishedCsvDataSet(url, kind, label);
   }
+  if (isAppsScriptWebAppUrl(url) && kind === "cost") {
+    return fetchExistingDataFromWebApp(url);
+  }
   if (isGoogleSheetUrl(url) && kind === "cost") {
     const workbook = await fetchGoogleMonthlyWorkbookByExport(url);
     if (workbook.length) return workbook;
@@ -1259,6 +1285,10 @@ function isGoogleSheetUrl(url) {
 
 function isPublishedCsvUrl(url) {
   return /docs\.google\.com\/spreadsheets\/d\/e\//.test(String(url || ""));
+}
+
+function isAppsScriptWebAppUrl(url) {
+  return /script\.google(?:usercontent)?\.com\/macros\/s\//.test(String(url || ""));
 }
 
 function googleSheetInfo(url) {
@@ -6238,7 +6268,8 @@ function restoreSavedImages(images) {
 async function restoreSavedGroup(group) {
   const savedEntries = group.entries || [];
   const restoreLabel = group.kind === "summary" ? (savedEntries[0]?.label || group.label) : group.label;
-  const hasDistinctUrls = group.kind === "cost" && savedEntries.length > 1 && savedEntries.every((entry) => entry.sourceUrl);
+  const uniqueEntrySourceUrls = new Set(savedEntries.map((entry) => entry.sourceUrl).filter(Boolean));
+  const hasDistinctUrls = group.kind === "cost" && savedEntries.length > 1 && savedEntries.every((entry) => entry.sourceUrl) && uniqueEntrySourceUrls.size > 1;
   const fetchUrl = hasDistinctUrls
     ? savedEntries.slice().sort((a, b) => monthNumber(a.label) - monthNumber(b.label)).map((entry) => entry.sourceUrl).join("\n")
     : group.sourceUrl;
