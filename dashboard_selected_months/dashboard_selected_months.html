@@ -1024,10 +1024,19 @@ async function fetchWorkbookFromUrl(url){
   }
   const isWebApp=/script\.google(?:usercontent)?\.com\/macros\/s\//.test(url);
   if(isWebApp){
-    const res=await fetch(url,{cache:"no-store"});
-    if(!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
-    const data=await res.json().catch(()=>null);
-    if(!data||data.ok===false) throw new Error((data&&data.error)||"웹앱 응답을 읽지 못했습니다.");
+    const cacheKey=`qualityClaimDashboard.webAppCache.v1:${url}`;
+    let data=null;
+    try{
+      const parsed=JSON.parse(sessionStorage.getItem(cacheKey)||"null");
+      if(parsed && Date.now()-parsed.savedAt<=30000) data=parsed.data;
+    }catch(_){}
+    if(!data){
+      const res=await fetch(url,{cache:"no-store"});
+      if(!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
+      data=await res.json().catch(()=>null);
+      if(!data||data.ok===false) throw new Error((data&&data.error)||"웹앱 응답을 읽지 못했습니다.");
+      try{sessionStorage.setItem(cacheKey,JSON.stringify({data,savedAt:Date.now()}));}catch(_){}
+    }
     const wb=XLSX.utils.book_new();
     Object.keys(data.months||{}).forEach(monthLabel=>{
       const sheet=XLSX.utils.aoa_to_sheet(data.months[monthLabel]);

@@ -714,12 +714,32 @@ async function fetchPublishedCsvMonthlyDataSets(lines, label, year) {
   return results;
 }
 
+function webAppJsonCacheKey(url) {
+  return `qualityClaimDashboard.webAppCache.v1:${url}`;
+}
+
+function readCachedWebAppJson(url) {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(webAppJsonCacheKey(url)) || "null");
+    if (parsed && Date.now() - parsed.savedAt <= 30000) return parsed.data;
+  } catch (_) {}
+  return null;
+}
+
+function writeCachedWebAppJson(url, data) {
+  try { sessionStorage.setItem(webAppJsonCacheKey(url), JSON.stringify({ data, savedAt: Date.now() })); } catch (_) {}
+}
+
 async function fetchExistingDataFromWebApp(url, year) {
   if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
-  const data = await res.json().catch(() => null);
-  if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
+  let data = readCachedWebAppJson(url);
+  if (!data) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
+    data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
+    writeCachedWebAppJson(url, data);
+  }
   const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
   const documentTitle = year ? `${year}년 마감자료` : "";
   const months = data.months || {};
@@ -2930,10 +2950,10 @@ function renderWeeklyDefect() {
 function renderMonthDefect() {
   const holder = document.getElementById("monthDefectContent");
   if (!holder) return;
-  const reloading = queueExistingDeadlineReload();
   const rows = monthlyDeadlineMetas();
   const months = currentYearDeadlineMonthStats(rows);
   if (!months.length) {
+    const reloading = queueExistingDeadlineReload();
     holder.innerHTML = `<div class="weekly-empty-message">${reloading ? "기존데이터 마감자료를 다시 불러오는 중입니다." : "1. 기존데이터에 금년도 마감자료를 넣으면 월하자현황이 표시됩니다."}</div>`;
     return;
   }
