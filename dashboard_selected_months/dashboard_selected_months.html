@@ -1386,6 +1386,22 @@ function typeDetailAllSubTypes(type){
   }));
   return Array.from(set).sort((a,b)=>a.localeCompare(b,"ko"));
 }
+function typeDetailCheckboxGroups(type){
+  const counts=new Map();
+  ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{
+    if(m==="종합"||m==="선택월")return;
+    (dashboard.years[y][m].rows||[]).forEach(r=>{
+      if(String(r["유형"]||"").trim()!==type)return;
+      const st=String(r["세부유형"]||"").trim();
+      if(!st)return;
+      counts.set(st,(counts.get(st)||0)+1);
+    });
+  }));
+  const entries=Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]);
+  const major=entries.filter(([,c])=>c>5).map(([name])=>name);
+  const minor=entries.filter(([,c])=>c<=5).map(([name])=>name);
+  return {major,minor};
+}
 function typeDetailFilteredRows(type,selectedSubTypes,year,month){
   const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
   return rows.filter(r=>String(r["유형"]||"").trim()===type && selectedSubTypes.has(String(r["세부유형"]||"").trim()));
@@ -1431,9 +1447,11 @@ function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   XLSX.writeFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
 function openTypeDetailFilterPopup(windowKey,title,chartHtml,type){
-  const subTypes=typeDetailAllSubTypes(type);
-  const selection=new Set(subTypes);
-  const checkboxHtml=subTypes.length?subTypes.map(t=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;"><input type="checkbox" checked onchange="window.__typeDetailToggle('${jsStr(t)}',this.checked)"> ${escHtml(t)}</label>`).join(""):'<span style="color:#777;">세부유형 데이터가 없습니다.</span>';
+  const {major,minor}=typeDetailCheckboxGroups(type);
+  const checkboxLabels=major.concat(minor.length?["기타"]:[]);
+  const expandLabel=label=>label==="기타"?minor:[label];
+  const selection=new Set();
+  const checkboxHtml=checkboxLabels.length?checkboxLabels.map(label=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;"><input type="checkbox" onchange="window.__typeDetailToggle('${jsStr(label)}',this.checked)"> ${escHtml(label)}</label>`).join(""):'<span style="color:#777;">세부유형 데이터가 없습니다.</span>';
   const popup=window.open("","claimAccum"+windowKey+"_"+Date.now(),"popup=yes,width=1120,height=860,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
   if(!popup)return;
   popup.document.open();
@@ -1470,8 +1488,8 @@ function openTypeDetailFilterPopup(windowKey,title,chartHtml,type){
   </body></html>`);
   popup.document.close();
   attachEscToClose(popup);
-  popup.__typeDetailToggle=(t,checked)=>{
-    if(checked)selection.add(t);else selection.delete(t);
+  popup.__typeDetailToggle=(label,checked)=>{
+    expandLabel(label).forEach(st=>{if(checked)selection.add(st);else selection.delete(st)});
     popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTableHtml(type,selection);
   };
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
