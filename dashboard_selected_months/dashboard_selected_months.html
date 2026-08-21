@@ -856,7 +856,7 @@ function renderCharts(){
 
 function getAllBrands(){
   const set=new Set();
-  ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{if(m!=="종합")(dashboard.years[y][m].rows||[]).forEach(r=>{const b=String(r["브랜드"]||"미분류").trim()||"미분류";if(b!=="미분류")set.add(b)})}));
+  ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{if(m!=="종합"&&m!=="선택월")(dashboard.years[y][m].rows||[]).forEach(r=>{const b=String(r["브랜드"]||"미분류").trim()||"미분류";if(b!=="미분류")set.add(b)})}));
   return Array.from(set).sort((a,b)=>a.localeCompare(b,"ko"));
 }
 function brandMonthlyCounts(brand){
