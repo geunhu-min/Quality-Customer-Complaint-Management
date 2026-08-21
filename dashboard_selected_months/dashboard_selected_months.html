@@ -1412,22 +1412,27 @@ function typeDetailCheckboxGroups(type){
   const minor=entries.filter(([,c])=>c<=5).map(([name])=>name);
   return {major,minor};
 }
-function typeDetailFilteredRows(type,selectedSubTypes,year,month){
+function typeDetailFilteredRows(type,selectedSubTypes,year,month,brand){
   const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
-  return rows.filter(r=>String(r["유형"]||"").trim()===type && selectedSubTypes.has(String(r["세부유형"]||"").trim()));
+  return rows.filter(r=>{
+    if(String(r["유형"]||"").trim()!==type)return false;
+    if(!selectedSubTypes.has(String(r["세부유형"]||"").trim()))return false;
+    if(brand && String(r["브랜드"]||"").trim()!==brand)return false;
+    return true;
+  });
 }
-function typeDetailMonthlyStats(type,selectedSubTypes){
-  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m).length);
-  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m).length);
-  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m),0));
-  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m),0));
+function typeDetailMonthlyStats(type,selectedSubTypes,brand){
+  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brand).length);
+  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brand).length);
+  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brand),0));
+  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brand),0));
   return {prevCounts,curCounts,prevAmounts,curAmounts};
 }
-function typeDetailMonthlyTableHtml(type,selectedSubTypes){
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes);
+function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brand){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,brand);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
-  let table=`<div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
+  let table=`<h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
   table+=`<tr style="background:#f3f7ff"><th>25년 건수</th>${prevCounts.map(c=>`<td style="text-align:right;color:#2f5bd3;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalCount.toLocaleString()}</td></tr>`;
   table+=`<tr style="background:#fff6ee"><th>26년 건수</th>${curCounts.map(c=>`<td style="text-align:right;color:#e56a00;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotalCount.toLocaleString()}</td></tr>`;
   table+=`<tr><th>25년 금액</th>${prevAmounts.map(a=>`<td style="text-align:right">${a.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalAmount.toLocaleString()}</td></tr>`;
@@ -1436,20 +1441,24 @@ function typeDetailMonthlyTableHtml(type,selectedSubTypes){
   table+=`</table></div>`;
   return table;
 }
+function typeDetailMonthlyTablesHtml(type,selectedSubTypes){
+  return CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>typeDetailMonthlyTableHtml(type,selectedSubTypes,s.label,s.brand)).join("");
+}
 function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
   const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
-  const aoa=[
-    ["유형",type],
-    ["선택 세부유형",selectedLabel],
-    ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"],
-    ["25년 건수",...prevCounts,sum(prevCounts)],
-    ["26년 건수",...curCounts,sum(curCounts)],
-    ["25년 금액",...prevAmounts,sum(prevAmounts)],
-    ["26년 금액",...curAmounts,sum(curAmounts)]
-  ];
+  const aoa=[["유형",type],["선택 세부유형",selectedLabel]];
+  CLAIM_TYPE_FILTER_BRAND_SECTIONS.forEach(s=>{
+    const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,s.brand);
+    aoa.push([]);
+    aoa.push([s.label]);
+    aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
+    aoa.push(["25년 건수",...prevCounts,sum(prevCounts)]);
+    aoa.push(["26년 건수",...curCounts,sum(curCounts)]);
+    aoa.push(["25년 금액",...prevAmounts,sum(prevAmounts)]);
+    aoa.push(["26년 금액",...curAmounts,sum(curAmounts)]);
+  });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"세부유형별월별금액");
@@ -1494,13 +1503,13 @@ function openTypeDetailFilterPopup(windowKey,title,chartHtml,type){
     ${chartHtml}
     <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택 · 월별 클레임 누적금액</h2><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
     <div id="typeDetailCheckboxes">${checkboxHtml}</div>
-    <div id="typeDetailTableWrap">${typeDetailMonthlyTableHtml(type,selection)}</div>
+    <div id="typeDetailTableWrap">${typeDetailMonthlyTablesHtml(type,selection)}</div>
   </body></html>`);
   popup.document.close();
   attachEscToClose(popup);
   popup.__typeDetailToggle=(label,checked)=>{
     expandLabel(label).forEach(st=>{if(checked)selection.add(st);else selection.delete(st)});
-    popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTableHtml(type,selection);
+    popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTablesHtml(type,selection);
   };
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
   if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection)));
