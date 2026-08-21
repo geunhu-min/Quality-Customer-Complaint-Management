@@ -1374,9 +1374,112 @@ function typeDetailPieItems(type){
   if(minorTotal>0)pieItems.push({label:"기타",value:minorTotal,color:"#495057"});
   return pieItems;
 }
+function typeDetailAllSubTypes(type){
+  const set=new Set();
+  ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{
+    if(m==="종합"||m==="선택월")return;
+    (dashboard.years[y][m].rows||[]).forEach(r=>{
+      if(String(r["유형"]||"").trim()!==type)return;
+      const st=String(r["세부유형"]||"").trim();
+      if(st)set.add(st);
+    });
+  }));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,"ko"));
+}
+function typeDetailFilteredRows(type,selectedSubTypes,year,month){
+  const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
+  return rows.filter(r=>String(r["유형"]||"").trim()===type && selectedSubTypes.has(String(r["세부유형"]||"").trim()));
+}
+function typeDetailMonthlyStats(type,selectedSubTypes){
+  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m).length);
+  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m).length);
+  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m),0));
+  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m),0));
+  return {prevCounts,curCounts,prevAmounts,curAmounts};
+}
+function typeDetailMonthlyTableHtml(type,selectedSubTypes){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes);
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
+  let table=`<div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
+  table+=`<tr style="background:#f3f7ff"><th>25년 건수</th>${prevCounts.map(c=>`<td style="text-align:right;color:#2f5bd3;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalCount.toLocaleString()}</td></tr>`;
+  table+=`<tr style="background:#fff6ee"><th>26년 건수</th>${curCounts.map(c=>`<td style="text-align:right;color:#e56a00;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotalCount.toLocaleString()}</td></tr>`;
+  table+=`<tr><th>25년 금액</th>${prevAmounts.map(a=>`<td style="text-align:right">${a.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalAmount.toLocaleString()}</td></tr>`;
+  table+=`<tr><th>26년 금액</th>${curAmounts.map(a=>`<td style="text-align:right">${a.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotalAmount.toLocaleString()}</td></tr>`;
+  table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${CLAIM_TYPE_FILTER_MONTHS.map((m,i)=>{const d=curAmounts[i]-prevAmounts[i],col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${d.toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${(curTotalAmount-prevTotalAmount).toLocaleString()}</td></tr>`;
+  table+=`</table></div>`;
+  return table;
+}
+function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
+  const selectedSubTypes=new Set(selectedSubTypesArr);
+  const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes);
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const aoa=[
+    ["유형",type],
+    ["선택 세부유형",selectedLabel],
+    ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"],
+    ["25년 건수",...prevCounts,sum(prevCounts)],
+    ["26년 건수",...curCounts,sum(curCounts)],
+    ["25년 금액",...prevAmounts,sum(prevAmounts)],
+    ["26년 금액",...curAmounts,sum(curAmounts)]
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"세부유형별월별금액");
+  const safeLabel=(selectedSubTypesArr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
+  XLSX.writeFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
+}
+function openTypeDetailFilterPopup(windowKey,title,chartHtml,type){
+  const subTypes=typeDetailAllSubTypes(type);
+  const selection=new Set(subTypes);
+  const checkboxHtml=subTypes.length?subTypes.map(t=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;"><input type="checkbox" checked onchange="window.__typeDetailToggle('${jsStr(t)}',this.checked)"> ${escHtml(t)}</label>`).join(""):'<span style="color:#777;">세부유형 데이터가 없습니다.</span>';
+  const popup=window.open("","claimAccum"+windowKey+"_"+Date.now(),"popup=yes,width=1120,height=860,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+  if(!popup)return;
+  popup.document.open();
+  popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>${escHtml(title)}</title><style>
+    html,body{margin:0;padding:0}
+    body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;padding:24px;color:#0f172a;background:#fff;box-sizing:border-box}
+    .wsvg-title{margin:0 0 26px;font-size:16px;font-weight:900;color:#26313d;text-align:center}
+    .wsvg-chart-wrap{display:flex;flex-direction:column;max-width:1050px;width:100%;margin:0 auto}
+    .wsvg-svg{display:block;width:100%}
+    .wsvg-grid{stroke:#edf0f3;stroke-width:1}
+    .wsvg-axis-label{fill:#6b7280;font-size:12px;font-weight:700}
+    .wsvg-bar-value{fill:#111827;font-size:12px;font-weight:800}
+    .wsvg-pie-row{display:flex;align-items:center;justify-content:center;gap:46px;padding:10px 0}
+    .wsvg-donut-svg{width:230px;height:230px;flex:0 0 230px}
+    .wsvg-donut-center-value{font-size:30px;font-weight:900;fill:#111827}
+    .wsvg-donut-center-unit{font-size:15px;font-weight:700;fill:#111827}
+    .wsvg-pie-legend{display:grid;min-width:0;gap:9px;font-size:13px;font-weight:700}
+    .wsvg-pie-legend-item{display:grid;grid-template-columns:11px minmax(50px,1fr) auto;align-items:center;gap:8px}
+    .wsvg-pie-legend-item i{width:11px;height:11px;border-radius:50%}
+    .wsvg-pie-legend-item em{color:#4b5563;font-style:normal}
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th,td{border:1px solid #e2e8f0;padding:6px 10px;white-space:nowrap}
+    th{background:#f8fafc}
+    .section-head-row{display:flex;align-items:center;gap:14px;margin:28px 0 12px;max-width:1050px;margin-left:auto;margin-right:auto}
+    .section-head-row h2{margin:0;font-size:16px}
+    #typeDetailCheckboxes,#typeDetailTableWrap{max-width:1050px;margin:0 auto}
+    button{cursor:pointer;border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:6px 12px;font-size:13px}
+    button:hover{background:#f3f4f6}
+  </style></head><body>
+    ${chartHtml}
+    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택 · 월별 클레임 누적금액</h2><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
+    <div id="typeDetailCheckboxes">${checkboxHtml}</div>
+    <div id="typeDetailTableWrap">${typeDetailMonthlyTableHtml(type,selection)}</div>
+  </body></html>`);
+  popup.document.close();
+  attachEscToClose(popup);
+  popup.__typeDetailToggle=(t,checked)=>{
+    if(checked)selection.add(t);else selection.delete(t);
+    popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTableHtml(type,selection);
+  };
+  const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
+  if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection)));
+}
 function openTypeDetailChart(type){
   const chartHtml=svgPieChartMarkup(typeDetailPieItems(type),{size:320,title:`${type} 세부유형별 현황 (${active})`});
-  openChartPopup("TypeDetail",`${type} 세부유형별 현황 (${active})`,chartHtml);
+  openTypeDetailFilterPopup("TypeDetail",`${type} 세부유형별 현황 (${active})`,chartHtml,type);
 }
 function typeDetailBarItems(type){
   const rows=(dashboard.years[currentAccumYear()][active]||{rows:[]}).rows||[];
@@ -1395,7 +1498,7 @@ function openTypeDetailBarChart(type){
   const chartHtml=items.length
     ? svgBarChartMarkup(items.map(i=>i.name),[{values:items.map(i=>i.count),barColors:items.map(i=>i.color)}],{width:1050,height:420,padBottom:34,valueFormatter:v=>v+"건",title:`${type} 세부유형별 현황 (${active})`})
     : `<div style="text-align:center;color:#8b95a1;padding:40px 0">표시할 데이터가 없습니다.</div>`;
-  openChartPopup("TypeDetailBar",`${type} 세부유형별 현황 (${active})`,chartHtml);
+  openTypeDetailFilterPopup("TypeDetailBar",`${type} 세부유형별 현황 (${active})`,chartHtml,type);
 }
 
 function packageDblClickTarget(label){
