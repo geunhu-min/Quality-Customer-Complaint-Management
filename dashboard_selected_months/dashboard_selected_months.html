@@ -884,26 +884,26 @@ function toggleClaimTypeFilter(type,checked){
   if(checked)sel.add(type);else sel.delete(type);
   renderClaimTypeFilterTable();
 }
-const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brand:null},{label:"퍼시스",brand:"퍼시스"},{label:"일룸",brand:"일룸"}];
-function claimTypeFilteredRows(year,month,brand){
+const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸","데스커","슬로우베드"]}];
+function claimTypeFilteredRows(year,month,brands){
   const sel=ensureClaimTypeFilterSelection();
   const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
   return rows.filter(r=>{
     if(!sel.has(String(r["유형"]||"").trim()))return false;
-    if(brand && String(r["브랜드"]||"").trim()!==brand)return false;
+    if(brands && !brands.includes(String(r["브랜드"]||"").trim()))return false;
     return true;
   });
 }
-function claimTypeFilterMonthlyStats(brand){
+function claimTypeFilterMonthlyStats(brands){
   const sel=ensureClaimTypeFilterSelection();
-  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2025",m,brand).length);
-  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2026",m,brand).length);
-  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2025",m,brand),0));
-  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2026",m,brand),0));
+  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2025",m,brands).length);
+  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2026",m,brands).length);
+  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2025",m,brands),0));
+  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2026",m,brands),0));
   return {sel,prevCounts,curCounts,prevAmounts,curAmounts};
 }
-function claimTypeFilterTableHtml(label,brand){
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(brand);
+function claimTypeFilterTableHtml(label,brands){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(brands);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
   let table=`<h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
@@ -922,7 +922,7 @@ function renderClaimTypeFilterTable(){
   const types=allClaimTypes();
   const sel=ensureClaimTypeFilterSelection();
   checkboxHolder.innerHTML=types.length?types.map(t=>`<label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" ${sel.has(t)?"checked":""} onchange="toggleClaimTypeFilter('${jsStr(t)}',this.checked)"> ${escHtml(t)}</label>`).join(""):'<span style="color:#777;">유형 데이터가 없습니다.</span>';
-  tableHolder.innerHTML=CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>claimTypeFilterTableHtml(s.label,s.brand)).join("");
+  tableHolder.innerHTML=CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>claimTypeFilterTableHtml(s.label,s.brands)).join("");
 }
 function downloadClaimTypeFilterExcel(){
   const sel=ensureClaimTypeFilterSelection();
@@ -930,7 +930,7 @@ function downloadClaimTypeFilterExcel(){
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const aoa=[["선택 유형",selectedLabel]];
   CLAIM_TYPE_FILTER_BRAND_SECTIONS.forEach(s=>{
-    const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(s.brand);
+    const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(s.brands);
     aoa.push([]);
     aoa.push([s.label]);
     aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
@@ -1412,24 +1412,24 @@ function typeDetailCheckboxGroups(type){
   const minor=entries.filter(([,c])=>c<=5).map(([name])=>name);
   return {major,minor};
 }
-function typeDetailFilteredRows(type,selectedSubTypes,year,month,brand){
+function typeDetailFilteredRows(type,selectedSubTypes,year,month,brands){
   const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
   return rows.filter(r=>{
     if(String(r["유형"]||"").trim()!==type)return false;
     if(!selectedSubTypes.has(String(r["세부유형"]||"").trim()))return false;
-    if(brand && String(r["브랜드"]||"").trim()!==brand)return false;
+    if(brands && !brands.includes(String(r["브랜드"]||"").trim()))return false;
     return true;
   });
 }
-function typeDetailMonthlyStats(type,selectedSubTypes,brand){
-  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brand).length);
-  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brand).length);
-  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brand),0));
-  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brand),0));
+function typeDetailMonthlyStats(type,selectedSubTypes,brands){
+  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brands).length);
+  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brands).length);
+  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brands),0));
+  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brands),0));
   return {prevCounts,curCounts,prevAmounts,curAmounts};
 }
-function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brand){
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,brand);
+function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brands){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,brands);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
   let table=`<h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
@@ -1442,7 +1442,7 @@ function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brand){
   return table;
 }
 function typeDetailMonthlyTablesHtml(type,selectedSubTypes){
-  return CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>typeDetailMonthlyTableHtml(type,selectedSubTypes,s.label,s.brand)).join("");
+  return CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>typeDetailMonthlyTableHtml(type,selectedSubTypes,s.label,s.brands)).join("");
 }
 function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
@@ -1450,7 +1450,7 @@ function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const aoa=[["유형",type],["선택 세부유형",selectedLabel]];
   CLAIM_TYPE_FILTER_BRAND_SECTIONS.forEach(s=>{
-    const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,s.brand);
+    const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
     aoa.push([]);
     aoa.push([s.label]);
     aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
