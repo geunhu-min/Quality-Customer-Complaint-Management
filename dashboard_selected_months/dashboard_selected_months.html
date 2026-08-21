@@ -1516,7 +1516,7 @@ function openTypeDetailFilterPopup(windowKey,title,chartHtml,type){
 }
 function openTypeDetailChart(type){
   const chartHtml=svgPieChartMarkup(typeDetailPieItems(type),{size:320,title:`${type} 세부유형별 현황 (${active})`});
-  openTypeDetailFilterPopup("TypeDetail",`${type} 세부유형별 현황 (${active})`,chartHtml,type);
+  openChartPopup("TypeDetail",`${type} 세부유형별 현황 (${active})`,chartHtml);
 }
 function typeDetailBarItems(type){
   const rows=(dashboard.years[currentAccumYear()][active]||{rows:[]}).rows||[];
