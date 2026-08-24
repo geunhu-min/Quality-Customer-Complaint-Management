@@ -884,13 +884,20 @@ function toggleClaimTypeFilter(type,checked){
   if(checked)sel.add(type);else sel.delete(type);
   renderClaimTypeFilterTable();
 }
-const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸","데스커","슬로우베드"]}];
+const CLAIM_TYPE_FILTER_KNOWN_BRANDS=["퍼시스","일룸","데스커","슬로우베드"];
+// brands: null="전체"(필터 없음), "OTHER"=아래 이름에 안 걸리는 나머지 전부("기타"), 배열=그 목록만
+const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸","데스커","슬로우베드"]},{label:"기타",brands:"OTHER"}];
+function rowMatchesBrandFilter(rowBrand,brands){
+  if(!brands)return true;
+  if(brands==="OTHER")return !CLAIM_TYPE_FILTER_KNOWN_BRANDS.includes(rowBrand);
+  return brands.includes(rowBrand);
+}
 function claimTypeFilteredRows(year,month,brands){
   const sel=ensureClaimTypeFilterSelection();
   const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
   return rows.filter(r=>{
     if(!sel.has(String(r["유형"]||"").trim()))return false;
-    if(brands && !brands.includes(String(r["브랜드"]||"").trim()))return false;
+    if(!rowMatchesBrandFilter(String(r["브랜드"]||"").trim(),brands))return false;
     return true;
   });
 }
@@ -1421,7 +1428,7 @@ function typeDetailFilteredRows(type,selectedSubTypes,year,month,brands){
   return rows.filter(r=>{
     if(String(r["유형"]||"").trim()!==type)return false;
     if(!selectedSubTypes.has(String(r["세부유형"]||"").trim()))return false;
-    if(brands && !brands.includes(String(r["브랜드"]||"").trim()))return false;
+    if(!rowMatchesBrandFilter(String(r["브랜드"]||"").trim(),brands))return false;
     return true;
   });
 }
