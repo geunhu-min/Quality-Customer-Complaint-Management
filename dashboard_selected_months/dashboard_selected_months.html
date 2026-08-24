@@ -145,6 +145,11 @@ body>h1{display:none}
       <div class="pieDonutCard"><div id="c1" class="chart"></div></div>
       <div class="pieDonutCard"><div id="c2" class="chart"></div></div>
     </div>
+    <div class="section-head-row" style="margin-top:20px;">
+      <h2>유형별 현황 (월별 추이)</h2>
+      <button type="button" class="amt-toggle" id="typeLineAmtToggle" onclick="toggleTypeLineChartMode()">금액별</button>
+    </div>
+    <div id="typeLineGrid" class="brandGrid"></div>
   </div>
   <div class="card full"><div id="c3" class="chart wideChart"></div></div>
   <div class="card full"><div id="c4" class="chart wideChart"></div></div>
@@ -711,7 +716,7 @@ function rebuildTotal(){
   });
 }
 function currentAccumYear(){return dashboard.years[accumViewYear]?accumViewYear:"2026"}
-function render(shouldSave=true){rebuildTotal();if(!dashboard.years[currentAccumYear()][active])active="종합";if(shouldSave)saveData();renderMonths();renderCompare();renderCharts();renderPackageGrid();renderBrandGrid();renderClaimTypeFilterTable()}
+function render(shouldSave=true){rebuildTotal();if(!dashboard.years[currentAccumYear()][active])active="종합";if(shouldSave)saveData();renderMonths();renderCompare();renderCharts();renderPackageGrid();renderBrandGrid();renderTypeLineGrid();renderClaimTypeFilterTable()}
 
 function renderMonths(){
   const yearObj=dashboard.years[currentAccumYear()];
@@ -1022,6 +1027,47 @@ function renderBrandGrid(){
       {name:"2025년",values:chartData.y25,color:"#1f73e8"},
       {name:"2026년",values:chartData.y26,color:"#e56a00"}
     ],brandChartMode==="amount"?{height:280,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{height:280,padBottom:30});
+  });
+}
+
+function typeMonthlyCounts(type){
+  const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  const y25=months.map(m=>((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).length);
+  const y26=months.map(m=>((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).length);
+  return {months,y25,y26};
+}
+function typeMonthlyAmounts(type){
+  const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+  const y25=months.map(m=>((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).reduce((s,r)=>s+num(r["금액"]),0));
+  const y26=months.map(m=>((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).reduce((s,r)=>s+num(r["금액"]),0));
+  return {months,y25,y26};
+}
+let typeLineChartMode="count";
+function toggleTypeLineChartMode(){
+  typeLineChartMode=typeLineChartMode==="count"?"amount":"count";
+  document.getElementById("typeLineAmtToggle")?.classList.toggle("active",typeLineChartMode==="amount");
+  renderTypeLineGrid();
+}
+function renderTypeLineGrid(){
+  const grid=document.getElementById("typeLineGrid"); if(!grid)return;
+  const types=allClaimTypes()
+    .map(type=>{
+      const d=typeMonthlyCounts(type);
+      const t25=d.y25.reduce((a,b)=>a+b,0), t26=d.y26.reduce((a,b)=>a+b,0);
+      return {type,d,total:t25+t26};
+    })
+    .sort((a,b)=>b.total-a.total);
+  if(!types.length){grid.innerHTML='<div style="color:#777;">유형 데이터가 없습니다.</div>';return}
+  grid.innerHTML=types.map((item,idx)=>`<div class="brandCard"><div style="font-weight:bold;text-align:center;margin-bottom:8px;font-size:16px;">${escHtml(item.type)}</div><div id="typeLineMini_${idx}" class="brandMini" style="height:330px;" ondblclick="openTypeDetailBarChart('${jsStr(item.type)}')"></div><div class="hint">더블클릭 → 세부유형별 상세 새 창</div></div>`).join("");
+  types.forEach((item,idx)=>{
+    const {d}=item;
+    const holder=document.getElementById("typeLineMini_"+idx);
+    holder.insertAdjacentHTML("beforebegin",trendSummaryHtml(d));
+    const chartData=typeLineChartMode==="amount"?typeMonthlyAmounts(item.type):d;
+    holder.innerHTML=svgLineChartMarkup(chartData.months,[
+      {name:"2025년",values:chartData.y25,color:"#1f73e8"},
+      {name:"2026년",values:chartData.y26,color:"#e56a00"}
+    ],typeLineChartMode==="amount"?{height:280,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{height:280,padBottom:30});
   });
 }
 
