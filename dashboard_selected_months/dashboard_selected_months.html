@@ -896,10 +896,12 @@ function claimTypeFilteredRows(year,month,brands){
 }
 function claimTypeFilterMonthlyStats(brands){
   const sel=ensureClaimTypeFilterSelection();
-  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2025",m,brands).length);
-  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2026",m,brands).length);
-  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2025",m,brands),0));
-  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(claimTypeFilteredRows("2026",m,brands),0));
+  const prevRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2025",m,brands));
+  const curRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>claimTypeFilteredRows("2026",m,brands));
+  const prevCounts=prevRows.map(rows=>rows.length);
+  const curCounts=curRows.map(rows=>rows.length);
+  const prevAmounts=prevRows.map(rows=>calcAmount(rows,0));
+  const curAmounts=curRows.map(rows=>calcAmount(rows,0));
   return {sel,prevCounts,curCounts,prevAmounts,curAmounts};
 }
 function claimTypeFilterTableHtml(label,brands){
@@ -1396,6 +1398,8 @@ function typeDetailAllSubTypes(type){
   }));
   return Array.from(set).sort((a,b)=>a.localeCompare(b,"ko"));
 }
+// 이 체크박스/표는 25~26년 전체 월을 다루므로, 항상 전체 기간 기준으로 major/기타를 나눈다.
+// (팝업 위쪽 차트는 현재 선택된 월/종합만 보여주므로 major 판정 기준이 다를 수 있음 — 의도된 차이)
 function typeDetailCheckboxGroups(type){
   const counts=new Map();
   ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{
@@ -1422,10 +1426,12 @@ function typeDetailFilteredRows(type,selectedSubTypes,year,month,brands){
   });
 }
 function typeDetailMonthlyStats(type,selectedSubTypes,brands){
-  const prevCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brands).length);
-  const curCounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brands).length);
-  const prevAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brands),0));
-  const curAmounts=CLAIM_TYPE_FILTER_MONTHS.map(m=>calcAmount(typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brands),0));
+  const prevRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2025",m,brands));
+  const curRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>typeDetailFilteredRows(type,selectedSubTypes,"2026",m,brands));
+  const prevCounts=prevRows.map(rows=>rows.length);
+  const curCounts=curRows.map(rows=>rows.length);
+  const prevAmounts=prevRows.map(rows=>calcAmount(rows,0));
+  const curAmounts=curRows.map(rows=>calcAmount(rows,0));
   return {prevCounts,curCounts,prevAmounts,curAmounts};
 }
 function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brands){
@@ -1838,7 +1844,7 @@ function ensureAccumDataControls(){
     const select=document.createElement("select");
     select.id="accumYearSelect";
     select.className="accum-year-select";
-    ["2025","2026","2027"].forEach(year=>{
+    ["2025","2026"].forEach(year=>{
       const option=document.createElement("option");
       option.value=year;
       option.textContent=year+"년";
