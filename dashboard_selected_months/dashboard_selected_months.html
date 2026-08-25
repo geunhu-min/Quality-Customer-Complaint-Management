@@ -892,6 +892,8 @@ function toggleClaimTypeFilter(type,checked){
 const CLAIM_TYPE_FILTER_KNOWN_BRANDS=["퍼시스","일룸","데스커","슬로우베드"];
 // brands: null="전체"(필터 없음), "OTHER"=아래 이름에 안 걸리는 나머지 전부("기타"), 배열=그 목록만
 const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸","데스커","슬로우베드"]},{label:"기타",brands:"OTHER"}];
+// 세부유형 선택 추이 팝업 전용 — 일룸/데스커/슬로우베드를 묶지 않고 각각 따로 보여준다.
+const TYPE_DETAIL_TREND_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸"]},{label:"데스커",brands:["데스커"]},{label:"슬로우베드",brands:["슬로우베드"]},{label:"기타",brands:"OTHER"}];
 function rowMatchesBrandFilter(rowBrand,brands){
   if(!brands)return true;
   if(brands==="OTHER")return !CLAIM_TYPE_FILTER_KNOWN_BRANDS.includes(rowBrand);
@@ -1513,14 +1515,15 @@ function openTypeDetailSelectionTrendPopup(type){
   const expandLabel=label=>label==="기타"?minor:[label];
   const selection=new Set();
   const checkboxHtml=checkboxLabels.length?checkboxLabels.map(label=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;"><input type="checkbox" onchange="window.__typeDetailToggle('${jsStr(label)}',this.checked)"> ${escHtml(label)}</label>`).join(""):'<span style="color:#777;">세부유형 데이터가 없습니다.</span>';
-  const popup=window.open("","claimAccumTypeDetailSelectionTrend_"+Date.now(),"popup=yes,width=1120,height=760,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+  const popup=window.open("","claimAccumTypeDetailSelectionTrend_"+Date.now(),"popup=yes,width=1120,height=900,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
   if(!popup)return;
   popup.document.open();
   popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>${escHtml(type)} 세부유형 선택 · 월별 추이</title><style>
     html,body{margin:0;padding:0}
     body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;padding:24px;color:#0f172a;background:#fff;box-sizing:border-box}
     .wsvg-title{margin:0 0 26px;font-size:16px;font-weight:900;color:#26313d;text-align:center}
-    .wsvg-chart-wrap{display:flex;flex-direction:column;max-width:1050px;width:100%;margin:0 auto}
+    .wsvg-chart-wrap{display:flex;flex-direction:column;max-width:1050px;width:100%;margin:0 auto 20px;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fff;box-sizing:border-box}
+    .wsvg-chart-wrap:last-child{margin-bottom:0}
     .wsvg-svg{display:block;width:100%}
     .wsvg-grid{stroke:#edf0f3;stroke-width:1}
     .wsvg-axis-label{fill:#6b7280;font-size:12px;font-weight:700}
@@ -1563,13 +1566,22 @@ function openTypeDetailSelectionTrendPopup(type){
       holder.innerHTML='<div style="text-align:center;color:#8b95a1;padding:30px 0">세부유형을 선택하면 전년 대비 추이 그래프가 표시됩니다.</div>';
       return;
     }
-    const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selection);
-    const values25=chartMode==="amount"?prevAmounts:prevCounts;
-    const values26=chartMode==="amount"?curAmounts:curCounts;
-    holder.innerHTML=svgLineChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
-      {name:"2025년",values:values25,color:"#1f73e8"},
-      {name:"2026년",values:values26,color:"#e56a00"}
-    ],chartMode==="amount"?{width:1050,height:340,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:340,padBottom:30});
+    const sections=TYPE_DETAIL_TREND_BRAND_SECTIONS
+      .map(s=>({s,stats:typeDetailMonthlyStats(type,selection,s.brands)}))
+      .filter(({stats})=>stats.prevCounts.reduce((a,b)=>a+b,0)+stats.curCounts.reduce((a,b)=>a+b,0)>0);
+    if(!sections.length){
+      holder.innerHTML='<div style="text-align:center;color:#8b95a1;padding:30px 0">선택한 세부유형에 해당하는 데이터가 없습니다.</div>';
+      return;
+    }
+    holder.innerHTML=sections.map(({s,stats})=>{
+      const {prevCounts,curCounts,prevAmounts,curAmounts}=stats;
+      const values25=chartMode==="amount"?prevAmounts:prevCounts;
+      const values26=chartMode==="amount"?curAmounts:curCounts;
+      return svgLineChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:"2025년",values:values25,color:"#1f73e8"},
+        {name:"2026년",values:values26,color:"#e56a00"}
+      ],chartMode==="amount"?{width:1050,height:280,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:280,padBottom:30,title:s.label});
+    }).join("");
   }
   popup.__typeDetailToggle=(label,checked)=>{
     expandLabel(label).forEach(st=>{if(checked)selection.add(st);else selection.delete(st)});
