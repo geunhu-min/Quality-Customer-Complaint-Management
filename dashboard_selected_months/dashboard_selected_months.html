@@ -1615,8 +1615,8 @@ function typeDetailBarItems(type){
   if(minorTotal>0)barItems.push({name:"기타",count:minorTotal,color:"#495057"});
   return barItems;
 }
-function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brands){
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,brands);
+function typeDetailMonthlyTableHtml(stats,label){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=stats;
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
   let table=`<h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
@@ -1629,15 +1629,20 @@ function typeDetailMonthlyTableHtml(type,selectedSubTypes,label,brands){
   return table;
 }
 function typeDetailMonthlyTablesHtml(type,selectedSubTypes){
-  return CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>typeDetailMonthlyTableHtml(type,selectedSubTypes,s.label,s.brands)).join("");
+  const sections=TYPE_DETAIL_TREND_BRAND_SECTIONS
+    .map(s=>({s,stats:typeDetailMonthlyStats(type,selectedSubTypes,s.brands)}))
+    .filter(({stats})=>stats.prevCounts.reduce((a,b)=>a+b,0)+stats.curCounts.reduce((a,b)=>a+b,0)>0);
+  if(!sections.length)return '<div style="text-align:center;color:#8b95a1;padding:30px 0">선택한 세부유형에 해당하는 데이터가 없습니다.</div>';
+  return sections.map(({s,stats})=>typeDetailMonthlyTableHtml(stats,s.label)).join("");
 }
 function downloadTypeDetailTableExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
   const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const aoa=[["유형",type],["선택 세부유형",selectedLabel]];
-  CLAIM_TYPE_FILTER_BRAND_SECTIONS.forEach(s=>{
+  TYPE_DETAIL_TREND_BRAND_SECTIONS.forEach(s=>{
     const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
+    if(sum(prevCounts)+sum(curCounts)<=0)return;
     aoa.push([]);
     aoa.push([s.label]);
     aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
