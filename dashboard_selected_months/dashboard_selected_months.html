@@ -7,6 +7,7 @@
 if(window.self!==window.top)document.documentElement.classList.add("embeddedMode");
 </script>
 <script src="./xlsx.full.min.js"></script>
+<script src="./exceljs.min.js"></script>
 <style>
 body{font-family:Arial,"Malgun Gothic",sans-serif;margin:20px;background:#f4f4f4}
 h1{text-align:center}.panel,.card{background:white;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:18px;overflow:visible}
@@ -979,27 +980,96 @@ function openClaimTypeFilterIloomBreakdownPopup(){
   popup.document.close();
   attachEscToClose(popup);
 }
+const EXCEL_HEADER_FILL={type:"pattern",pattern:"solid",fgColor:{argb:"FFD9D9D9"}};
+const EXCEL_THIN_BORDER={top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}};
+const EXCEL_CENTER={horizontal:"center"};
+function saveWorkbookAsFile(wb,fileName){
+  wb.xlsx.writeBuffer().then(buf=>{
+    const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=fileName;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+}
+function excelSolidFill(hex){return {type:"pattern",pattern:"solid",fgColor:{argb:"FF"+hex}};}
+const EXCEL_FILL_25COUNT=excelSolidFill("F3F7FF");
+const EXCEL_FILL_26COUNT=excelSolidFill("FFF6EE");
+const EXCEL_FILL_DIFF=excelSolidFill("F8F8FF");
+const EXCEL_FONT_25="FF2F5BD3";
+const EXCEL_FONT_26="FFE56A00";
+const EXCEL_FONT_UP="FFD62728";
+const EXCEL_FONT_DOWN="FF1F4BD8";
+function writeExcelStatsSection(ws,row,label,stats){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=stats;
+  const prevAmtDiff=CLAIM_TYPE_FILTER_MONTHS.map((m,i)=>curAmounts[i]-prevAmounts[i]);
+  const titleCell=ws.getCell(row,1);
+  titleCell.value=label;
+  titleCell.alignment=EXCEL_CENTER;
+  row++;
+  ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"].forEach((val,ci)=>{
+    const cell=ws.getCell(row,ci+1);
+    cell.value=val;
+    cell.alignment=EXCEL_CENTER;
+    cell.fill=EXCEL_HEADER_FILL;
+    cell.border=EXCEL_THIN_BORDER;
+  });
+  row++;
+  const labelCell=text=>{
+    const c=ws.getCell(row,1);
+    c.value=text;c.alignment=EXCEL_CENTER;c.fill=EXCEL_HEADER_FILL;c.border=EXCEL_THIN_BORDER;
+  };
+  const dataCell=(ci,val,fill,fontArgb,bold)=>{
+    const c=ws.getCell(row,ci+2);
+    c.value=val;c.border=EXCEL_THIN_BORDER;c.numFmt="#,##0";
+    if(fill)c.fill=fill;
+    if(fontArgb||bold)c.font={color:fontArgb?{argb:fontArgb}:undefined,bold:!!bold};
+  };
+  labelCell("25년 건수");
+  prevCounts.forEach((v,i)=>dataCell(i,v,EXCEL_FILL_25COUNT,EXCEL_FONT_25,true));
+  dataCell(prevCounts.length,sum(prevCounts),EXCEL_FILL_25COUNT,EXCEL_FONT_25,true);
+  row++;
+  labelCell("26년 건수");
+  curCounts.forEach((v,i)=>dataCell(i,v,EXCEL_FILL_26COUNT,EXCEL_FONT_26,true));
+  dataCell(curCounts.length,sum(curCounts),EXCEL_FILL_26COUNT,EXCEL_FONT_26,true);
+  row++;
+  labelCell("25년 금액");
+  prevAmounts.forEach((v,i)=>dataCell(i,v,null,null,false));
+  dataCell(prevAmounts.length,sum(prevAmounts),null,EXCEL_FONT_25,true);
+  row++;
+  labelCell("26년 금액");
+  curAmounts.forEach((v,i)=>dataCell(i,v,null,null,false));
+  dataCell(curAmounts.length,sum(curAmounts),null,EXCEL_FONT_26,true);
+  row++;
+  labelCell("증감 (금액)");
+  prevAmtDiff.forEach((v,i)=>dataCell(i,v,EXCEL_FILL_DIFF,v>=0?EXCEL_FONT_UP:EXCEL_FONT_DOWN,true));
+  dataCell(prevAmtDiff.length,sum(prevAmtDiff),EXCEL_FILL_DIFF,null,true);
+  row++;
+  return row+1;
+}
+function finalizeExcelSheet(ws){
+  ws.columns=[{width:16},...Array.from({length:13},()=>({width:13}))];
+  ws.eachRow(r=>r.eachCell(c=>{c.font=Object.assign({},c.font,{size:10});}));
+}
 function downloadClaimTypeFilterExcel(){
   const sel=ensureClaimTypeFilterSelection();
   const selectedLabel=Array.from(sel).join(", ")||"선택없음";
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
-  const aoa=[["선택 유형",selectedLabel]];
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("유형별월별금액");
+  ws.getCell(1,1).value="선택 유형";
+  ws.getCell(1,2).value=selectedLabel;
+  let row=3;
   FULL_BRAND_BREAKDOWN_SECTIONS.forEach(s=>{
-    const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(s.brands);
-    if(sum(prevCounts)+sum(curCounts)<=0)return;
-    aoa.push([]);
-    aoa.push([s.label]);
-    aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
-    aoa.push(["25년 건수",...prevCounts,sum(prevCounts)]);
-    aoa.push(["26년 건수",...curCounts,sum(curCounts)]);
-    aoa.push(["25년 금액",...prevAmounts,sum(prevAmounts)]);
-    aoa.push(["26년 금액",...curAmounts,sum(curAmounts)]);
+    const stats=claimTypeFilterMonthlyStats(s.brands);
+    if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)return;
+    row=writeExcelStatsSection(ws,row,s.label,stats);
   });
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"유형별월별금액");
+  finalizeExcelSheet(ws);
   const safeLabel=(Array.from(sel).join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
-  XLSX.writeFile(wb,`월별클레임누적금액_${safeLabel}.xlsx`);
+  saveWorkbookAsFile(wb,`월별클레임누적금액_${safeLabel}.xlsx`);
 }
 
 function getAllBrands(){
@@ -1532,22 +1602,22 @@ function typeDetailMonthlyStats(type,selectedSubTypes,brands){
 function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
   const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
-  const aoa=[
-    ["유형",type],
-    ["선택 세부유형",selectedLabel],
-    ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"],
-    ["25년 건수",...prevCounts,sum(prevCounts)],
-    ["26년 건수",...curCounts,sum(curCounts)],
-    ["25년 금액",...prevAmounts,sum(prevAmounts)],
-    ["26년 금액",...curAmounts,sum(curAmounts)]
-  ];
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"세부유형별월별금액");
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("세부유형별월별금액");
+  ws.getCell(1,1).value="유형";
+  ws.getCell(1,2).value=type;
+  ws.getCell(2,1).value="선택 세부유형";
+  ws.getCell(2,2).value=selectedLabel;
+  let row=4;
+  TYPE_DETAIL_TREND_BRAND_SECTIONS.forEach(s=>{
+    const stats=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
+    if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)return;
+    row=writeExcelStatsSection(ws,row,s.label,stats);
+  });
+  finalizeExcelSheet(ws);
   const safeLabel=(selectedSubTypesArr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
-  XLSX.writeFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
+  saveWorkbookAsFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
 function openTypeDetailSelectionTrendPopup(type){
   const {major,minor}=typeDetailCheckboxGroups(type);
@@ -1679,23 +1749,21 @@ function downloadTypeDetailTableExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
   const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
-  const aoa=[["유형",type],["선택 세부유형",selectedLabel]];
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("세부유형별월별금액");
+  ws.getCell(1,1).value="유형";
+  ws.getCell(1,2).value=type;
+  ws.getCell(2,1).value="선택 세부유형";
+  ws.getCell(2,2).value=selectedLabel;
+  let row=4;
   FULL_BRAND_BREAKDOWN_SECTIONS.forEach(s=>{
-    const {prevCounts,curCounts,prevAmounts,curAmounts}=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
-    if(sum(prevCounts)+sum(curCounts)<=0)return;
-    aoa.push([]);
-    aoa.push([s.label]);
-    aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
-    aoa.push(["25년 건수",...prevCounts,sum(prevCounts)]);
-    aoa.push(["26년 건수",...curCounts,sum(curCounts)]);
-    aoa.push(["25년 금액",...prevAmounts,sum(prevAmounts)]);
-    aoa.push(["26년 금액",...curAmounts,sum(curAmounts)]);
+    const stats=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
+    if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)return;
+    row=writeExcelStatsSection(ws,row,s.label,stats);
   });
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"세부유형별월별금액");
+  finalizeExcelSheet(ws);
   const safeLabel=(selectedSubTypesArr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
-  XLSX.writeFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
+  saveWorkbookAsFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
 function openTypeDetailTablePopup(type,chartHtml){
   const {major,minor}=typeDetailCheckboxGroups(type);
