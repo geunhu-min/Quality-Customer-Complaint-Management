@@ -1140,8 +1140,8 @@ function brandMonthlyCounts(brand){
 }
 function brandMonthlyAmounts(brand){
   const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  const y25=months.map(m=>((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["브랜드"]||"미분류").trim()===brand).reduce((s,r)=>s+num(r["금액"]),0));
-  const y26=months.map(m=>((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["브랜드"]||"미분류").trim()===brand).reduce((s,r)=>s+num(r["금액"]),0));
+  const y25=months.map(m=>calcAmount(((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["브랜드"]||"미분류").trim()===brand),0));
+  const y26=months.map(m=>calcAmount(((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["브랜드"]||"미분류").trim()===brand),0));
   return {months,y25,y26};
 }
 let brandChartMode="count";
@@ -1205,8 +1205,8 @@ function typeMonthlyCounts(type){
 }
 function typeMonthlyAmounts(type){
   const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  const y25=months.map(m=>((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).reduce((s,r)=>s+num(r["금액"]),0));
-  const y26=months.map(m=>((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type).reduce((s,r)=>s+num(r["금액"]),0));
+  const y25=months.map(m=>calcAmount(((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type),0));
+  const y26=months.map(m=>calcAmount(((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>String(r["유형"]||"미분류").trim()===type),0));
   return {months,y25,y26};
 }
 let typeLineChartMode="count";
@@ -1255,8 +1255,8 @@ function packageGroupMonthlyCounts(group){
 }
 function packageGroupMonthlyAmounts(group){
   const months=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  const y25=months.map(m=>((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>packageGroupLabel(r["포장"])===group).reduce((s,r)=>s+num(r["금액"]),0));
-  const y26=months.map(m=>((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>packageGroupLabel(r["포장"])===group).reduce((s,r)=>s+num(r["금액"]),0));
+  const y25=months.map(m=>calcAmount(((dashboard.years["2025"][m]||{rows:[]}).rows||[]).filter(r=>packageGroupLabel(r["포장"])===group),0));
+  const y26=months.map(m=>calcAmount(((dashboard.years["2026"][m]||{rows:[]}).rows||[]).filter(r=>packageGroupLabel(r["포장"])===group),0));
   return {months,y25,y26};
 }
 let packageChartMode="count";
@@ -1663,10 +1663,11 @@ function typeDetailSelectionLabels(type,selectedSubTypesArr){
     safeLabel:isAll?"전체선택":safeExcelFileLabel(selectedSubTypesArr)
   };
 }
-async function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
+async function downloadTypeDetailFilterExcel(type,selectedSubTypesArr,chartMode){
   const selectedSubTypes=new Set(selectedSubTypesArr);
   const {label:selectedLabel,safeLabel}=typeDetailSelectionLabels(type,selectedSubTypesArr);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const isAmount=chartMode==="amount";
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet("세부유형별월별금액");
   ws.getCell(1,1).value="유형";
@@ -1680,9 +1681,9 @@ async function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
     const stats=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
     if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)continue;
     const chart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
-      {name:"2025년",values:stats.prevCounts,color:"#1f73e8"},
-      {name:"2026년",values:stats.curCounts,color:"#e56a00"}
-    ],{width:CHART_W,height:CHART_H,padBottom:30,title:s.label});
+      {name:"2025년",values:isAmount?stats.prevAmounts:stats.prevCounts,color:"#1f73e8"},
+      {name:"2026년",values:isAmount?stats.curAmounts:stats.curCounts,color:"#e56a00"}
+    ],isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:s.label});
     try{
       const dataUrl=await svgMarkupToPngDataUrl(chart.svg,chart.width,chart.height);
       const imageId=wb.addImage({base64:dataUrl.split(",")[1],extension:"png"});
@@ -1793,7 +1794,7 @@ function openTypeDetailSelectionTrendPopup(type){
     renderTrendChart();
   });
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
-  if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection)));
+  if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection),chartMode));
   if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
     const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
     popup.document.querySelectorAll("#typeDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
