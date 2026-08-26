@@ -1696,6 +1696,47 @@ async function downloadTypeDetailFilterExcel(type,selectedSubTypesArr,chartMode)
   finalizeExcelSheet(ws,TYPE_DETAIL_EXCEL_COL_WIDTHS);
   saveWorkbookAsFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
+async function downloadTypeDetailFilterExcelBoth(type,selectedSubTypesArr){
+  const selectedSubTypes=new Set(selectedSubTypesArr);
+  const {label:selectedLabel,safeLabel}=typeDetailSelectionLabels(type,selectedSubTypesArr);
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("세부유형별월별금액");
+  ws.getCell(1,1).value="유형";
+  ws.getCell(1,2).value=type;
+  ws.getCell(2,1).value="선택 세부유형";
+  ws.getCell(2,2).value=selectedLabel;
+  let row=4;
+  const CHART_W=560,CHART_H=230,RIGHT_COL=7;
+  const TYPE_DETAIL_EXCEL_COL_WIDTHS=[12,...Array.from({length:13},()=>11)];
+  for(const s of TYPE_DETAIL_TREND_BRAND_SECTIONS){
+    const stats=typeDetailMonthlyStats(type,selectedSubTypes,s.brands);
+    if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)continue;
+    const countChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      {name:"2025년",values:stats.prevCounts,color:"#1f73e8"},
+      {name:"2026년",values:stats.curCounts,color:"#e56a00"}
+    ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${s.label}(건)`});
+    const amountChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      {name:"2025년",values:stats.prevAmounts,color:"#1f73e8"},
+      {name:"2026년",values:stats.curAmounts,color:"#e56a00"}
+    ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${s.label}(금액)`,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
+    try{
+      const [countUrl,amountUrl]=await Promise.all([
+        svgMarkupToPngDataUrl(countChart.svg,countChart.width,countChart.height),
+        svgMarkupToPngDataUrl(amountChart.svg,amountChart.width,amountChart.height)
+      ]);
+      const countImgId=wb.addImage({base64:countUrl.split(",")[1],extension:"png"});
+      ws.addImage(countImgId,{tl:{col:0,row:row-1},ext:{width:countChart.width,height:countChart.height}});
+      const amountImgId=wb.addImage({base64:amountUrl.split(",")[1],extension:"png"});
+      ws.addImage(amountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:amountChart.width,height:amountChart.height}});
+      row+=Math.max(1,Math.ceil(countChart.height/20)-2);
+    }catch(e){console.error("차트 이미지 삽입 실패:",s.label,e);}
+    row=writeExcelStatsSection(ws,row,s.label,stats);
+    row++;
+  }
+  finalizeExcelSheet(ws,TYPE_DETAIL_EXCEL_COL_WIDTHS);
+  saveWorkbookAsFile(wb,`${type}_세부유형별_월별건수금액_${safeLabel}.xlsx`);
+}
 function openTypeDetailSelectionTrendPopup(type){
   const {major,minor}=typeDetailCheckboxGroups(type);
   const checkboxLabels=major.concat(minor.length?["기타"]:[]);
@@ -1730,7 +1771,7 @@ function openTypeDetailSelectionTrendPopup(type){
     <div class="section-head-row"><h2>${escHtml(type)} 전체 현황 (월별 추이)</h2><button type="button" id="typeDetailAmtToggle">금액별</button></div>
     <div id="typeDetailOverallChart"></div>
     <hr>
-    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택</h2><button type="button" id="typeDetailSelectAllBtn">전체선택</button><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
+    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택</h2><button type="button" id="typeDetailSelectAllBtn">전체선택</button><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button><button type="button" id="typeDetailDownloadBothBtn">건수,금액 다운로드</button></div>
     <div id="typeDetailCheckboxes">${checkboxHtml}</div>
     <div id="typeDetailTrendChart"></div>
   </body></html>`);
@@ -1795,6 +1836,8 @@ function openTypeDetailSelectionTrendPopup(type){
   });
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
   if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection),chartMode));
+  const downloadBothBtn=popup.document.getElementById("typeDetailDownloadBothBtn");
+  if(downloadBothBtn)downloadBothBtn.addEventListener("click",()=>downloadTypeDetailFilterExcelBoth(type,Array.from(selection)));
   if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
     const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
     popup.document.querySelectorAll("#typeDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
