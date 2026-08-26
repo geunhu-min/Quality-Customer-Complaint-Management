@@ -993,6 +993,10 @@ function saveWorkbookAsFile(wb,fileName){
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
 }
+function safeExcelFileLabel(arr){
+  const joined=(arr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
+  return joined.length<=60?joined:joined.slice(0,60)+`_등${arr.length}건`;
+}
 function excelSolidFill(hex){return {type:"pattern",pattern:"solid",fgColor:{argb:"FF"+hex}};}
 const EXCEL_FILL_25COUNT=excelSolidFill("F3F7FF");
 const EXCEL_FILL_26COUNT=excelSolidFill("FFF6EE");
@@ -1068,7 +1072,7 @@ function downloadClaimTypeFilterExcel(){
     row=writeExcelStatsSection(ws,row,s.label,stats);
   });
   finalizeExcelSheet(ws);
-  const safeLabel=(Array.from(sel).join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
+  const safeLabel=safeExcelFileLabel(Array.from(sel));
   saveWorkbookAsFile(wb,`월별클레임누적금액_${safeLabel}.xlsx`);
 }
 
@@ -1599,9 +1603,18 @@ function typeDetailMonthlyStats(type,selectedSubTypes,brands){
   const curAmounts=curRows.map(rows=>calcAmount(rows,0));
   return {prevCounts,curCounts,prevAmounts,curAmounts};
 }
+function typeDetailSelectionLabels(type,selectedSubTypesArr){
+  const {major,minor}=typeDetailCheckboxGroups(type);
+  const totalAvailable=major.length+minor.length;
+  const isAll=totalAvailable>0&&selectedSubTypesArr.length>=totalAvailable;
+  return {
+    label:isAll?"전체 선택":(selectedSubTypesArr.join(", ")||"선택없음"),
+    safeLabel:isAll?"전체선택":safeExcelFileLabel(selectedSubTypesArr)
+  };
+}
 function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
-  const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
+  const {label:selectedLabel,safeLabel}=typeDetailSelectionLabels(type,selectedSubTypesArr);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet("세부유형별월별금액");
@@ -1616,7 +1629,6 @@ function downloadTypeDetailFilterExcel(type,selectedSubTypesArr){
     row=writeExcelStatsSection(ws,row,s.label,stats);
   });
   finalizeExcelSheet(ws);
-  const safeLabel=(selectedSubTypesArr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
   saveWorkbookAsFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
 function openTypeDetailSelectionTrendPopup(type){
@@ -1653,7 +1665,7 @@ function openTypeDetailSelectionTrendPopup(type){
     <div class="section-head-row"><h2>${escHtml(type)} 전체 현황 (월별 추이)</h2><button type="button" id="typeDetailAmtToggle">금액별</button></div>
     <div id="typeDetailOverallChart"></div>
     <hr>
-    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택</h2><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
+    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택</h2><button type="button" id="typeDetailSelectAllBtn">전체선택</button><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
     <div id="typeDetailCheckboxes">${checkboxHtml}</div>
     <div id="typeDetailTrendChart"></div>
   </body></html>`);
@@ -1693,12 +1705,22 @@ function openTypeDetailSelectionTrendPopup(type){
       ],chartMode==="amount"?{width:1050,height:280,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:280,padBottom:30,title:s.label});
     }).join("");
   }
+  const totalSubTypeCount=major.length+minor.length;
+  const selectAllBtn=popup.document.getElementById("typeDetailSelectAllBtn");
+  function syncSelectAllBtn(){
+    if(!selectAllBtn)return;
+    const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
+    selectAllBtn.textContent=isAll?"전체해제":"전체선택";
+    selectAllBtn.classList.toggle("active",isAll);
+  }
   popup.__typeDetailToggle=(label,checked)=>{
     expandLabel(label).forEach(st=>{if(checked)selection.add(st);else selection.delete(st)});
+    syncSelectAllBtn();
     renderTrendChart();
   };
   renderOverallChart();
   renderTrendChart();
+  syncSelectAllBtn();
   const amtToggleBtn=popup.document.getElementById("typeDetailAmtToggle");
   if(amtToggleBtn)amtToggleBtn.addEventListener("click",()=>{
     chartMode=chartMode==="count"?"amount":"count";
@@ -1708,6 +1730,14 @@ function openTypeDetailSelectionTrendPopup(type){
   });
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
   if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailFilterExcel(type,Array.from(selection)));
+  if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
+    const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
+    popup.document.querySelectorAll("#typeDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
+    if(isAll)selection.clear();
+    else checkboxLabels.forEach(label=>expandLabel(label).forEach(st=>selection.add(st)));
+    syncSelectAllBtn();
+    renderTrendChart();
+  });
 }
 function openTypeDetailChart(type){
   const chartHtml=svgPieChartMarkup(typeDetailPieItems(type),{size:320,title:`${type} 세부유형별 현황 (${active})`});
@@ -1747,7 +1777,7 @@ function typeDetailMonthlyTablesHtml(type,selectedSubTypes){
 }
 function downloadTypeDetailTableExcel(type,selectedSubTypesArr){
   const selectedSubTypes=new Set(selectedSubTypesArr);
-  const selectedLabel=selectedSubTypesArr.join(", ")||"선택없음";
+  const {label:selectedLabel,safeLabel}=typeDetailSelectionLabels(type,selectedSubTypesArr);
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet("세부유형별월별금액");
@@ -1762,7 +1792,6 @@ function downloadTypeDetailTableExcel(type,selectedSubTypesArr){
     row=writeExcelStatsSection(ws,row,s.label,stats);
   });
   finalizeExcelSheet(ws);
-  const safeLabel=(selectedSubTypesArr.join("_")||"선택없음").replace(/[\\/:*?"<>|]/g,"_");
   saveWorkbookAsFile(wb,`${type}_세부유형별_월별금액_${safeLabel}.xlsx`);
 }
 function openTypeDetailTablePopup(type,chartHtml){
@@ -1791,20 +1820,39 @@ function openTypeDetailTablePopup(type,chartHtml){
     #typeDetailCheckboxes,#typeDetailTableWrap{max-width:1050px;margin:0 auto}
     button{cursor:pointer;border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:6px 12px;font-size:13px}
     button:hover{background:#f3f4f6}
+    button.active{background:#1f73e8;color:#fff;border-color:#1f73e8}
   </style></head><body>
     ${chartHtml}
-    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택 · 월별 클레임 누적금액</h2><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
+    <div class="section-head-row"><h2>${escHtml(type)} 세부유형 선택 · 월별 클레임 누적금액</h2><button type="button" id="typeDetailSelectAllBtn">전체선택</button><button type="button" id="typeDetailDownloadBtn">엑셀 다운로드</button></div>
     <div id="typeDetailCheckboxes">${checkboxHtml}</div>
     <div id="typeDetailTableWrap">${typeDetailMonthlyTablesHtml(type,selection)}</div>
   </body></html>`);
   popup.document.close();
   attachEscToClose(popup);
+  const totalSubTypeCount=major.length+minor.length;
+  const selectAllBtn=popup.document.getElementById("typeDetailSelectAllBtn");
+  function syncSelectAllBtn(){
+    if(!selectAllBtn)return;
+    const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
+    selectAllBtn.textContent=isAll?"전체해제":"전체선택";
+    selectAllBtn.classList.toggle("active",isAll);
+  }
   popup.__typeDetailToggle=(label,checked)=>{
     expandLabel(label).forEach(st=>{if(checked)selection.add(st);else selection.delete(st)});
+    syncSelectAllBtn();
     popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTablesHtml(type,selection);
   };
+  syncSelectAllBtn();
   const downloadBtn=popup.document.getElementById("typeDetailDownloadBtn");
   if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadTypeDetailTableExcel(type,Array.from(selection)));
+  if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
+    const isAll=totalSubTypeCount>0&&selection.size>=totalSubTypeCount;
+    popup.document.querySelectorAll("#typeDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
+    if(isAll)selection.clear();
+    else checkboxLabels.forEach(label=>expandLabel(label).forEach(st=>selection.add(st)));
+    syncSelectAllBtn();
+    popup.document.getElementById("typeDetailTableWrap").innerHTML=typeDetailMonthlyTablesHtml(type,selection);
+  });
 }
 function openTypeDetailBarChart(type){
   const items=typeDetailBarItems(type);
