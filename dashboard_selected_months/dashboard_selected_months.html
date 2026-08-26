@@ -894,6 +894,8 @@ const CLAIM_TYPE_FILTER_KNOWN_BRANDS=["퍼시스","일룸","데스커","슬로�
 const CLAIM_TYPE_FILTER_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸","데스커","슬로우베드"]},{label:"기타",brands:"OTHER"}];
 // 세부유형 선택 추이 팝업 전용 — 일룸/데스커/슬로우베드를 묶지 않고 각각 따로 보여준다.
 const TYPE_DETAIL_TREND_BRAND_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸",brands:["일룸"]},{label:"데스커",brands:["데스커"]},{label:"슬로우베드",brands:["슬로우베드"]},{label:"기타",brands:"OTHER"}];
+// 월별 클레임 누적금액(유형 선택) 엑셀 다운로드 전용 — 일룸 합계와 개별 브랜드를 둘 다 담는다.
+const CLAIM_TYPE_FILTER_EXCEL_SECTIONS=[{label:"전체",brands:null},{label:"퍼시스",brands:["퍼시스"]},{label:"일룸합계",brands:["일룸","데스커","슬로우베드"]},{label:"일룸",brands:["일룸"]},{label:"데스커",brands:["데스커"]},{label:"슬로우베드",brands:["슬로우베드"]},{label:"기타",brands:"OTHER"}];
 function rowMatchesBrandFilter(rowBrand,brands){
   if(!brands)return true;
   if(brands==="OTHER")return !CLAIM_TYPE_FILTER_KNOWN_BRANDS.includes(rowBrand);
@@ -918,17 +920,17 @@ function claimTypeFilterMonthlyStats(brands){
   const curAmounts=curRows.map(rows=>calcAmount(rows,0));
   return {sel,prevCounts,curCounts,prevAmounts,curAmounts};
 }
-function claimTypeFilterTableHtml(label,brands){
-  const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(brands);
+function claimTypeFilterTableHtml(stats,label,dblclickAttr){
+  const {prevCounts,curCounts,prevAmounts,curAmounts}=stats;
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const prevTotalCount=sum(prevCounts),curTotalCount=sum(curCounts),prevTotalAmount=sum(prevAmounts),curTotalAmount=sum(curAmounts);
-  let table=`<h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
+  let table=`<div${dblclickAttr?` ${dblclickAttr} style="cursor:pointer"`:""}><h3 style="margin:18px 0 8px;font-size:15px;">${escHtml(label)}</h3><div style="overflow-x:auto"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>`;
   table+=`<tr style="background:#f3f7ff"><th>25년 건수</th>${prevCounts.map(c=>`<td style="text-align:right;color:#2f5bd3;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalCount.toLocaleString()}</td></tr>`;
   table+=`<tr style="background:#fff6ee"><th>26년 건수</th>${curCounts.map(c=>`<td style="text-align:right;color:#e56a00;font-weight:bold">${c.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotalCount.toLocaleString()}</td></tr>`;
   table+=`<tr><th>25년 금액</th>${prevAmounts.map(a=>`<td style="text-align:right">${a.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#2f5bd3;font-weight:bold">${prevTotalAmount.toLocaleString()}</td></tr>`;
   table+=`<tr><th>26년 금액</th>${curAmounts.map(a=>`<td style="text-align:right">${a.toLocaleString()}</td>`).join("")}<td style="text-align:right;color:#e56a00;font-weight:bold">${curTotalAmount.toLocaleString()}</td></tr>`;
   table+=`<tr style="background:#f8f8ff"><th>증감 (금액)</th>${CLAIM_TYPE_FILTER_MONTHS.map((m,i)=>{const d=curAmounts[i]-prevAmounts[i],col=d>=0?"#d62728":"#1f4bd8";return `<td style="text-align:right;color:${col};font-weight:bold">${d.toLocaleString()}</td>`}).join("")}<td style="text-align:right;font-weight:bold">${(curTotalAmount-prevTotalAmount).toLocaleString()}</td></tr>`;
-  table+=`</table></div>`;
+  table+=`</table></div>${dblclickAttr?`<div style="font-size:11.5px;color:#1f73e8;text-align:center;margin-top:4px;font-weight:700">더블클릭 → 일룸/데스커/슬로우베드 상세</div>`:""}</div>`;
   return table;
 }
 function renderClaimTypeFilterTable(){
@@ -938,15 +940,53 @@ function renderClaimTypeFilterTable(){
   const types=allClaimTypes();
   const sel=ensureClaimTypeFilterSelection();
   checkboxHolder.innerHTML=types.length?types.map(t=>`<label style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" ${sel.has(t)?"checked":""} onchange="toggleClaimTypeFilter('${jsStr(t)}',this.checked)"> ${escHtml(t)}</label>`).join(""):'<span style="color:#777;">유형 데이터가 없습니다.</span>';
-  tableHolder.innerHTML=CLAIM_TYPE_FILTER_BRAND_SECTIONS.map(s=>claimTypeFilterTableHtml(s.label,s.brands)).join("");
+  const sections=CLAIM_TYPE_FILTER_BRAND_SECTIONS
+    .map(s=>({s,stats:claimTypeFilterMonthlyStats(s.brands)}))
+    .filter(({stats})=>stats.prevCounts.reduce((a,b)=>a+b,0)+stats.curCounts.reduce((a,b)=>a+b,0)>0);
+  tableHolder.innerHTML=sections.length
+    ? sections.map(({s,stats})=>claimTypeFilterTableHtml(stats,s.label,s.label==="일룸"?'ondblclick="openClaimTypeFilterIloomBreakdownPopup()"':"")).join("")
+    : '<div style="text-align:center;color:#8b95a1;padding:30px 0">선택한 유형에 해당하는 데이터가 없습니다.</div>';
+}
+function openClaimTypeFilterIloomBreakdownPopup(){
+  const sel=ensureClaimTypeFilterSelection();
+  const selectedLabel=Array.from(sel).join(", ")||"선택없음";
+  const subSections=[{label:"일룸",brands:["일룸"]},{label:"데스커",brands:["데스커"]},{label:"슬로우베드",brands:["슬로우베드"]}];
+  const sections=subSections
+    .map(s=>({s,stats:claimTypeFilterMonthlyStats(s.brands)}))
+    .filter(({stats})=>stats.prevCounts.reduce((a,b)=>a+b,0)+stats.curCounts.reduce((a,b)=>a+b,0)>0);
+  const tablesHtml=sections.length
+    ? sections.map(({s,stats})=>claimTypeFilterTableHtml(stats,s.label,"")).join("")
+    : '<div style="text-align:center;color:#8b95a1;padding:30px 0">일룸/데스커/슬로우베드 해당 데이터가 없습니다.</div>';
+  const popup=window.open("","claimTypeFilterIloomBreakdown_"+Date.now(),"popup=yes,width=1120,height=760,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+  if(!popup)return;
+  popup.document.open();
+  popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>일룸 세부 브랜드별 월별 클레임 누적금액</title><style>
+    html,body{margin:0;padding:0}
+    body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;padding:24px;color:#0f172a;background:#fff;box-sizing:border-box}
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th,td{border:1px solid #e2e8f0;padding:6px 10px;white-space:nowrap}
+    th{background:#f8fafc}
+    h2{margin:0 0 6px;font-size:16px}
+    h3{margin:18px 0 8px;font-size:15px}
+    .max{max-width:1050px;margin:0 auto}
+  </style></head><body>
+    <div class="max">
+      <h2>일룸 세부 브랜드별 월별 클레임 누적금액</h2>
+      <div style="font-size:13px;color:#555;margin-bottom:8px;">선택 유형: ${escHtml(selectedLabel)}</div>
+      ${tablesHtml}
+    </div>
+  </body></html>`);
+  popup.document.close();
+  attachEscToClose(popup);
 }
 function downloadClaimTypeFilterExcel(){
   const sel=ensureClaimTypeFilterSelection();
   const selectedLabel=Array.from(sel).join(", ")||"선택없음";
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const aoa=[["선택 유형",selectedLabel]];
-  CLAIM_TYPE_FILTER_BRAND_SECTIONS.forEach(s=>{
+  CLAIM_TYPE_FILTER_EXCEL_SECTIONS.forEach(s=>{
     const {prevCounts,curCounts,prevAmounts,curAmounts}=claimTypeFilterMonthlyStats(s.brands);
+    if(sum(prevCounts)+sum(curCounts)<=0)return;
     aoa.push([]);
     aoa.push([s.label]);
     aoa.push(["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"]);
