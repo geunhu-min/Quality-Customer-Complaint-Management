@@ -140,7 +140,7 @@
   function defectPrefixRank(defect) {
     var t = String(defect || "").trim();
     if (t.indexOf("상판") === 0) return 1;
-    if (t.indexOf("도어") === 0) return 2;
+    if (/^(좌|우)?도어/.test(t)) return 2;
     return 3;
   }
   function sortDetails(rows) {
