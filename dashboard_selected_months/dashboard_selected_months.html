@@ -149,6 +149,7 @@ body>h1{display:none}
     <div class="section-head-row" style="margin-top:20px;">
       <h2>유형별 현황 (월별 추이)</h2>
       <button type="button" class="amt-toggle" id="typeLineAmtToggle" onclick="toggleTypeLineChartMode()">금액별</button>
+      <button type="button" onclick="downloadTypeLineOverallExcel()">전체현황 다운로드</button>
     </div>
     <div id="typeLineGrid" class="brandGrid"></div>
   </div>
@@ -1214,6 +1215,48 @@ function toggleTypeLineChartMode(){
   typeLineChartMode=typeLineChartMode==="count"?"amount":"count";
   document.getElementById("typeLineAmtToggle")?.classList.toggle("active",typeLineChartMode==="amount");
   renderTypeLineGrid();
+}
+function overallFilteredRows(year,month,brands){
+  const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
+  return rows.filter(r=>rowMatchesBrandFilter(String(r["브랜드"]||"").trim(),brands));
+}
+function overallMonthlyStatsByBrand(brands){
+  const prevRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>overallFilteredRows("2025",m,brands));
+  const curRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>overallFilteredRows("2026",m,brands));
+  const prevCounts=prevRows.map(rows=>rows.length);
+  const curCounts=curRows.map(rows=>rows.length);
+  const prevAmounts=prevRows.map(rows=>calcAmount(rows,0));
+  const curAmounts=curRows.map(rows=>calcAmount(rows,0));
+  return {prevCounts,curCounts,prevAmounts,curAmounts};
+}
+async function downloadTypeLineOverallExcel(){
+  const isAmount=typeLineChartMode==="amount";
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("전체현황_월별");
+  ws.getCell(1,1).value="기준";
+  ws.getCell(1,2).value=isAmount?"금액별":"건수별";
+  let row=3;
+  const CHART_W=1150,CHART_H=230;
+  const COL_WIDTHS=[12,...Array.from({length:13},()=>11)];
+  for(const s of FULL_BRAND_BREAKDOWN_SECTIONS){
+    const stats=overallMonthlyStatsByBrand(s.brands);
+    if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)continue;
+    const chart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      {name:"2025년",values:isAmount?stats.prevAmounts:stats.prevCounts,color:"#1f73e8"},
+      {name:"2026년",values:isAmount?stats.curAmounts:stats.curCounts,color:"#e56a00"}
+    ],isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:s.label});
+    try{
+      const dataUrl=await svgMarkupToPngDataUrl(chart.svg,chart.width,chart.height);
+      const imageId=wb.addImage({base64:dataUrl.split(",")[1],extension:"png"});
+      ws.addImage(imageId,{tl:{col:0,row:row-1},ext:{width:chart.width,height:chart.height}});
+      row+=Math.max(1,Math.ceil(chart.height/20)-2);
+    }catch(e){console.error("차트 이미지 삽입 실패:",s.label,e);}
+    row=writeExcelStatsSection(ws,row,s.label,stats);
+    row++;
+  }
+  finalizeExcelSheet(ws,COL_WIDTHS);
+  saveWorkbookAsFile(wb,`전체현황_월별추이_${isAmount?"금액별":"건수별"}.xlsx`);
 }
 function renderTypeLineGrid(){
   const grid=document.getElementById("typeLineGrid"); if(!grid)return;
