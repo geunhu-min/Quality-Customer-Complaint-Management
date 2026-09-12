@@ -580,6 +580,14 @@ function setDashboardTab(tab) {
   document.querySelectorAll("[data-dashboard-panel]").forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.dashboardPanel === activeDashboardTab);
   });
+  if (activeDashboardTab === "claimAccum") loadClaimAccumFrame();
+}
+
+function loadClaimAccumFrame() {
+  const frame = document.querySelector(".defect-close-frame[data-src]");
+  if (!frame) return;
+  frame.src = frame.dataset.src;
+  frame.removeAttribute("data-src");
 }
 
 function closeDataInsert() {
@@ -8721,7 +8729,8 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" data-src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    if (typeof activeDashboardTab !== "undefined" && activeDashboardTab === "claimAccum" && typeof loadClaimAccumFrame === "function") loadClaimAccumFrame();
   }
   function selectedWeeklyDeadlineEntries() {
     var year = n("weeklyYearSelect", new Date().getFullYear());
@@ -8843,7 +8852,8 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" data-src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    if (typeof activeDashboardTab !== "undefined" && activeDashboardTab === "claimAccum" && typeof loadClaimAccumFrame === "function") loadClaimAccumFrame();
   }
   function rowCells(row) { return (row && row.__cells) || (row && row.__raw && row.__raw.__cells) || []; }
   function rowHeaders(row) { return (row && row.__headers) || (row && row.__raw && row.__raw.__headers) || []; }
@@ -9176,7 +9186,8 @@ function buildClaimSummaryMeta(latestDate) {
     if (!body) return;
     if (body.querySelector("iframe.defect-close-frame")) return;
     body.__claimAccumRouted = false;
-    body.innerHTML = '<iframe class="defect-close-frame" src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    body.innerHTML = '<iframe class="defect-close-frame" data-src="dashboard_selected_months/dashboard_selected_months.html" title="\uD074\uB808\uC784\uB204\uC801\uD604\uD669"></iframe>';
+    if (typeof activeDashboardTab !== "undefined" && activeDashboardTab === "claimAccum" && typeof loadClaimAccumFrame === "function") loadClaimAccumFrame();
   }
   function scheduleRestore() { setTimeout(restoreFrame, 0); setTimeout(restoreFrame, 100); }
   document.addEventListener("click", function (event) {
