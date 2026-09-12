@@ -1193,9 +1193,19 @@ main {
 }
 
 .weekly-item-row {
-  grid-template-columns: 46px minmax(180px, 1fr) 110px 150px;
+  grid-template-columns: 46px 170px minmax(200px, 1fr) 90px 130px;
   min-height: 34px;
   padding-left: 18px;
+}
+
+.weekly-item-defect {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5563;
+  line-height: 1.4;
+  text-align: left;
+  padding: 6px 8px;
+  white-space: normal;
 }
 
 .weekly-defect-table th,

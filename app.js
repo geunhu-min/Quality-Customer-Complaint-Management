@@ -3286,7 +3286,12 @@ function monthlyTopClaimItems(rows, limit = 10, options = {}) {
     target.rows.push(row);
   });
   return [...map.values()]
-    .map((item) => ({ ...item, count: item.rows.length, amount: item.amountBase + monthlyPenaltyCount(item.rows) * penaltyPerClaim }))
+    .map((item) => ({
+      ...item,
+      count: item.rows.length,
+      amount: item.amountBase + monthlyPenaltyCount(item.rows) * penaltyPerClaim,
+      defectSummary: [...new Set(item.rows.map((row) => String(row.defect || "").trim()).filter(Boolean))].join("\n")
+    }))
     .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
@@ -4433,6 +4438,7 @@ function weeklyRowMeta(row, index) {
     item: weeklyItemName(row),
     color: weeklyItemColor(row),
     quantity: weeklyItemQuantity(row),
+    defect: weeklyDefectDetail(row),
     cause,
     excludedCause: isExcludedWeeklyCause(cause)
   };
@@ -4473,14 +4479,15 @@ function weeklyTopClaimItems(rows, limit = 5) {
   const map = new Map();
   rows.forEach((row) => {
     const key = weeklyItemKey(row.item, row.color);
-    if (!map.has(key)) map.set(key, { key, label: row.item, color: row.color, displayLabel: weeklyItemDisplayLabel(row.item, row.color), quantity: 0, amount: 0, receipts: new Set() });
+    if (!map.has(key)) map.set(key, { key, label: row.item, color: row.color, displayLabel: weeklyItemDisplayLabel(row.item, row.color), quantity: 0, amount: 0, receipts: new Set(), defects: new Set() });
     const target = map.get(key);
     target.quantity += row.quantity;
     target.amount += row.amount;
     target.receipts.add(row.receiptNo);
+    if (row.defect) target.defects.add(String(row.defect).trim());
   });
   return [...map.values()]
-    .map((item) => ({ ...item, count: item.receipts.size, amount: item.amount + item.receipts.size * penaltyPerClaim }))
+    .map((item) => ({ ...item, count: item.receipts.size, amount: item.amount + item.receipts.size * penaltyPerClaim, defectSummary: [...item.defects].join("\n") }))
     .sort((a, b) => b.count - a.count || b.amount - a.amount || a.displayLabel.localeCompare(b.displayLabel, "ko", { numeric: true }))
     .slice(0, limit || undefined);
 }
@@ -8115,6 +8122,7 @@ function buildClaimSummaryMeta(latestDate) {
       var encoded = encodeDetailOptionsV3(opts);
       return '<div class="weekly-item-row"><span>' + (index + 1) + '</span>' +
         '<strong class="weekly-item-code" ondblclick="openClaimDetailExportPopupEncoded(\'' + scope + '\',\'' + encoded + '\')" title="double click">' + escapeHtml(item.displayLabel || item.label) + '</strong>' +
+        '<span class="weekly-item-defect">' + formatDefect(item.defectSummary || "") + '</span>' +
         '<em>' + formatNumber(item.count || 0) + '\uAC74</em><b>' + (formatNumber(Math.round(Number(item.amount || 0))) + '\uC6D0') + '</b></div>';
     }).join("") + '</div>';
   };
@@ -10144,7 +10152,7 @@ function buildClaimSummaryMeta(latestDate) {
         var line = typeof lineFromDeadline === "function" ? lineFromDeadline(meta) : (typeof monthlyLineLabel === "function" ? monthlyLineLabel(meta) : clean(meta.cause) || "\uBBF8\uBD84\uB958");
         var baseAmount = Number(meta.amount || 0) - (meta.penaltyEligible === false ? PENALTY : 0);
         var cause = clean(meta.cause);
-        return { row: meta.row, sourceMeta: meta, week: weekFromMetaV7(meta, index), receiptNo: clean(meta.receiptNo) || "deadline_" + index, amount: baseAmount, line: line, type: clean(meta.type) || "\uBBF8\uBD84\uB958", brand: clean(meta.brand) || "\uBBF8\uC9C0\uC815", item: clean(meta.item) || "\uBBF8\uBD84\uB958", color: clean(meta.color), quantity: Number(meta.quantity || 1) || 1, cause: cause, excludedCause: typeof isExcludedWeeklyCause === "function" ? isExcludedWeeklyCause(cause) : /^(VN|\.)$/i.test(cause) };
+        return { row: meta.row, sourceMeta: meta, week: weekFromMetaV7(meta, index), receiptNo: clean(meta.receiptNo) || "deadline_" + index, amount: baseAmount, line: line, type: clean(meta.type) || "\uBBF8\uBD84\uB958", brand: clean(meta.brand) || "\uBBF8\uC9C0\uC815", item: clean(meta.item) || "\uBBF8\uBD84\uB958", color: clean(meta.color), quantity: Number(meta.quantity || 1) || 1, cause: cause, defect: String(meta.defect || "").trim(), excludedCause: typeof isExcludedWeeklyCause === "function" ? isExcludedWeeklyCause(cause) : /^(VN|\.)$/i.test(cause) };
       }).filter(function (meta) { return meta.week && meta.item && !meta.excludedCause; });
     }
     return previousWeeklyDashboardMetasV7 ? previousWeeklyDashboardMetasV7(rows) : [];
