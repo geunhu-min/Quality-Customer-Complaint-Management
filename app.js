@@ -7691,6 +7691,11 @@ function buildClaimSummaryMeta(latestDate) {
     if (options.line) rows = rows.filter(function (meta) { return String(meta.line || monthlyLineLabel(meta)) === String(options.line); });
     if (options.type) rows = rows.filter(function (meta) { return String(meta.type || "") === String(options.type); });
     if (options.itemKey) rows = rows.filter(function (meta) { return metaKey(meta) === options.itemKey; });
+    if (options.types && options.types.length) {
+      var typeSet = {};
+      options.types.forEach(function (t) { typeSet[String(t)] = true; });
+      rows = rows.filter(function (meta) { return typeSet[String(meta.type || "").trim() || "미분류"]; });
+    }
     return rows.slice().sort(function (a, b) {
       return detailLineSortKey(a) - detailLineSortKey(b) ||
         metaKey(a).localeCompare(metaKey(b), "ko", { numeric: true }) ||
@@ -7717,34 +7722,87 @@ function buildClaimSummaryMeta(latestDate) {
     return JSON.stringify({ scope: scope, options: options || {} }).replace(/</g, "\\u003c").replace(/'/g, "\\u0027");
   }
 
+  var DETAIL_TYPE_ORDER = ["외관", "가공", "포장", "감성", "취급"];
+  function detailTypeSortKey(type) {
+    var index = DETAIL_TYPE_ORDER.indexOf(type);
+    return index < 0 ? DETAIL_TYPE_ORDER.length : index;
+  }
+  function detailTypesPresent(metas) {
+    var seen = {};
+    var types = [];
+    metas.forEach(function (meta) {
+      var t = String(meta.type || "").trim() || "미분류";
+      if (!seen[t]) { seen[t] = true; types.push(t); }
+    });
+    return types.sort(function (a, b) { return detailTypeSortKey(a) - detailTypeSortKey(b) || a.localeCompare(b, "ko", { numeric: true }); });
+  }
+
   window.openClaimDetailExportPopup = function (scope, options) {
     options = options || {};
     var metas = detailMetas(scope, options);
-    var rows = metas.map(detailRow);
-    var title = popupTitle(scope, options, rows);
-    var payload = payloadJson(scope, options);
+    var types = detailTypesPresent(metas);
+    var title = popupTitle(scope, options, metas.map(detailRow));
     var popup = window.open("", "claimDetail_" + Date.now(), "popup=yes,width=1180,height=760,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
     if (!popup) return;
+    var typeFilterHtml = types.length > 1 ? (
+      '<div class="type-filter">' +
+      '<label><input type="checkbox" id="claimTypeAll" checked onchange="toggleAllTypes(this.checked)"> 전체</label>' +
+      types.map(function (t) {
+        return '<label><input type="checkbox" class="claim-type-cb" value="' + escapeHtml(t) + '" checked onchange="applyTypeFilter()"> ' + escapeHtml(t) + '</label>';
+      }).join("") +
+      '</div>'
+    ) : "";
     popup.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>' + escapeHtml(title) + '</title><style>' +
       'body{margin:0;color:#111827;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif;font-size:13px}' +
       'header{position:sticky;top:0;z-index:2;padding:18px 20px;border-bottom:1px solid #d7dde5;background:#fff}' +
       'h1{margin:0 0 8px;font-size:24px}.meta{margin-bottom:14px;color:#4b5563;font-weight:800}' +
       'button{min-height:32px;margin-right:6px;padding:0 12px;border:1px solid #c8d2de;border-radius:6px;background:#fff;font-weight:800;cursor:pointer}' +
       '.close{position:absolute;right:16px;top:12px;border:0;font-size:24px}.wrap{padding:0 20px 20px}' +
+      '.type-filter{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 12px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}' +
+      '.type-filter label{display:inline-flex;align-items:center;gap:5px;font-weight:800;cursor:pointer}' +
       'table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #d9dfe7;padding:8px 9px;vertical-align:top;word-break:keep-all}' +
       'th{background:#f1f3f5;text-align:center;font-weight:900}td{text-align:center}td.defect{text-align:left;white-space:pre-wrap;line-height:1.45}' +
       '</style></head><body><header><button class="close" onclick="window.close()">×</button><h1>' + escapeHtml(title) + '</h1>' +
       '<div class="meta">' + L.displayCols + '</div>' +
-      '<button onclick=\'window.opener && window.opener.downloadClaimDetailExcel(' + payload + ')\'>' + L.download + '</button>' +
-      '<button onclick=\'window.opener && window.opener.downloadClaimDetailOriginalExcel(' + payload + ')\'>' + L.originalDownload + '</button>' +
+      typeFilterHtml +
+      '<button onclick="downloadFiltered(false)">' + L.download + '</button>' +
+      '<button onclick="downloadFiltered(true)">' + L.originalDownload + '</button>' +
       '</header><div class="wrap"><table><thead><tr>' +
       '<th style="width:100px">' + L.brand + '</th><th style="width:150px">' + L.code + '</th><th style="width:80px">' + L.color + '</th>' +
       '<th style="width:80px">' + L.count + '</th><th style="width:120px">' + L.amount + '</th><th>' + L.defect + '</th><th style="width:140px">' + L.cause + '</th>' +
       '</tr></thead><tbody>' +
-      (rows.length ? rows.map(function (row) {
-        return '<tr><td>' + escapeHtml(row[L.brand]) + '</td><td>' + escapeHtml(row[L.code]) + '</td><td>' + escapeHtml(row[L.color]) + '</td><td>' + formatNumber(row[L.count]) + '</td><td>' + money(row[L.amount]) + '</td><td class="defect">' + escapeHtml(row[L.defect]) + '</td><td>' + escapeHtml(row[L.cause]) + '</td></tr>';
+      (metas.length ? metas.map(function (meta) {
+        var row = detailRow(meta);
+        var typeAttr = escapeHtml(String(meta.type || "").trim() || "미분류");
+        return '<tr data-type="' + typeAttr + '"><td>' + escapeHtml(row[L.brand]) + '</td><td>' + escapeHtml(row[L.code]) + '</td><td>' + escapeHtml(row[L.color]) + '</td><td>' + formatNumber(row[L.count]) + '</td><td>' + money(row[L.amount]) + '</td><td class="defect">' + escapeHtml(row[L.defect]) + '</td><td>' + escapeHtml(row[L.cause]) + '</td></tr>';
       }).join("") : '<tr><td colspan="7">' + L.noData + '</td></tr>') +
-      '</tbody></table></div></body></html>');
+      '</tbody></table></div>' +
+      '<script>' +
+      'function checkedTypes(){return Array.prototype.slice.call(document.querySelectorAll(".claim-type-cb:checked")).map(function(cb){return cb.value;});}' +
+      'function applyTypeFilter(){' +
+      '  var checked = checkedTypes();' +
+      '  Array.prototype.forEach.call(document.querySelectorAll("tbody tr[data-type]"), function(tr){' +
+      '    tr.style.display = checked.indexOf(tr.getAttribute("data-type")) === -1 ? "none" : "";' +
+      '  });' +
+      '  var all = document.getElementById("claimTypeAll");' +
+      '  var boxes = document.querySelectorAll(".claim-type-cb");' +
+      '  if (all) all.checked = checked.length === boxes.length;' +
+      '}' +
+      'function toggleAllTypes(state){' +
+      '  Array.prototype.forEach.call(document.querySelectorAll(".claim-type-cb"), function(cb){cb.checked = state;});' +
+      '  applyTypeFilter();' +
+      '}' +
+      'function downloadFiltered(isOriginal){' +
+      '  var base = ' + payloadJson(scope, options) + ';' +
+      '  var boxes = document.querySelectorAll(".claim-type-cb");' +
+      '  if (boxes.length) base.options.types = checkedTypes();' +
+      '  if (window.opener) {' +
+      '    if (isOriginal) window.opener.downloadClaimDetailOriginalExcel(base);' +
+      '    else window.opener.downloadClaimDetailExcel(base);' +
+      '  }' +
+      '}' +
+      '</' + 'script>' +
+      '</body></html>');
     popup.document.close();
     attachEscToClose(popup);
   };
