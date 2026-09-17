@@ -636,7 +636,10 @@ function normalizeDashboard(data){
 }
 async function loadData(){
   try{
-    const res=await fetch("/api/data");
+    const controller=new AbortController();
+    const timeoutId=setTimeout(()=>controller.abort(),6000);
+    const res=await fetch("/api/data",{signal:controller.signal});
+    clearTimeout(timeoutId);
     if(!res.ok)throw new Error("data load failed");
     normalizeDashboard(await res.json());
   }catch(err){
@@ -2283,7 +2286,12 @@ function downloadPopupHistory(){
   XLSX.writeFile(wb, currentPopupFileName || "이력.xlsx");
 }
 
-async function initDashboard(){await loadConfig();await loadData();await syncClosingLinksFromMainDashboard();applyEditMode();render(false)}
+async function initDashboard(){
+  await Promise.all([loadConfig(),loadData()]);
+  applyEditMode();
+  render(false);
+  syncClosingLinksFromMainDashboard().then(saved=>{if(saved)render(false)}).catch(()=>{});
+}
 window.addEventListener("storage",async e=>{
   if(e.key!==LINK_STORAGE_KEY)return;
   await loadData();

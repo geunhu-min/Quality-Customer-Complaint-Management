@@ -3009,6 +3009,13 @@ function renderMonthDefect() {
     </div>`;
 }
 
+function deadlinePriorityEntry(entries) {
+  if (!entries.length) return null;
+  const wanted = monthlyDefectSelectedMonth || `${new Date().getMonth() + 1}월`;
+  return entries.find((entry) => entry.label === wanted) ||
+    entries.slice().sort((a, b) => monthNumber(b.label) - monthNumber(a.label))[0];
+}
+
 function queueExistingDeadlineReload() {
   if (existingDeadlineAutoChecked || existingDeadlineAutoLoading) return existingDeadlineAutoLoading;
   const groups = savedLinkGroupsCache.filter((group) => group.kind === "cost" && group.sourceUrl);
@@ -3017,12 +3024,31 @@ function queueExistingDeadlineReload() {
   existingDeadlineAutoLoading = true;
   const keys = new Set(groups.map((group) => group.groupKey || group.sourceUrl));
   state.uploads = state.uploads.filter((entry) => !keys.has(entry.groupKey));
-  Promise.all(groups.map((group) => restoreSavedGroup(group)))
+
+  const plan = groups.map((group) => {
+    const entries = group.entries || [];
+    const uniqueUrls = new Set(entries.map((entry) => entry.sourceUrl).filter(Boolean));
+    const isSplit = entries.length > 1 && entries.every((entry) => entry.sourceUrl) && uniqueUrls.size > 1;
+    const priority = isSplit ? deadlinePriorityEntry(entries) : null;
+    return { group, rest: priority ? entries.filter((entry) => entry !== priority) : [], priority };
+  });
+
+  Promise.all(plan.map(({ group, priority }) => restoreSavedGroup(group, priority ? [priority] : undefined)))
     .then(() => {
       existingDeadlineAutoLoading = false;
       rebuildFromSelection();
       renderAll("기존데이터 마감자료를 다시 불러왔습니다.");
       saveDashboardState();
+      const remaining = plan.filter((item) => item.rest.length);
+      if (remaining.length) {
+        Promise.all(remaining.map(({ group, rest }) => restoreSavedGroup(group, rest)))
+          .then(() => {
+            rebuildFromSelection();
+            renderAll("나머지 월별 마감자료를 추가로 불러왔습니다.");
+            saveDashboardState();
+          })
+          .catch(() => {});
+      }
     })
     .catch(() => {
       existingDeadlineAutoLoading = false;
@@ -6316,11 +6342,12 @@ function restoreSavedImages(images) {
   });
 }
 
-async function restoreSavedGroup(group) {
-  const savedEntries = group.entries || [];
+async function restoreSavedGroup(group, entriesOverride) {
+  const allEntries = group.entries || [];
+  const savedEntries = entriesOverride || allEntries;
   const restoreLabel = group.kind === "summary" ? (savedEntries[0]?.label || group.label) : group.label;
-  const uniqueEntrySourceUrls = new Set(savedEntries.map((entry) => entry.sourceUrl).filter(Boolean));
-  const hasDistinctUrls = group.kind === "cost" && savedEntries.length > 1 && savedEntries.every((entry) => entry.sourceUrl) && uniqueEntrySourceUrls.size > 1;
+  const uniqueAllSourceUrls = new Set(allEntries.map((entry) => entry.sourceUrl).filter(Boolean));
+  const hasDistinctUrls = group.kind === "cost" && allEntries.length > 1 && allEntries.every((entry) => entry.sourceUrl) && uniqueAllSourceUrls.size > 1;
   const fetchUrl = hasDistinctUrls
     ? savedEntries.slice().sort((a, b) => monthNumber(a.label) - monthNumber(b.label)).map((entry) => entry.sourceUrl).join("\n")
     : group.sourceUrl;
