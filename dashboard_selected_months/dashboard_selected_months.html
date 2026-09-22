@@ -1710,6 +1710,39 @@ async function downloadPackageDetailFilterExcelBoth(group,selectedValuesArr){
   finalizeExcelSheet(ws,PACKAGE_DETAIL_EXCEL_COL_WIDTHS);
   saveWorkbookAsFile(wb,`${group}_세부별_월별건수금액_${safeLabel}.xlsx`);
 }
+function downloadPackageDetailRawExcel(group,selectedValuesArr){
+  if(!selectedValuesArr.length){alert("선택된 세부항목이 없습니다.");return}
+  const {minor}=packageDetailCheckboxGroups(group);
+  const expandLabel=label=>label==="기타"?minor:[label];
+  const vendorList=Array.from(new Set(selectedValuesArr.flatMap(expandLabel)));
+  const rawCols=["유형","세부유형","포장","브랜드","제품코드","색상","수량","금액","하자상세"];
+  const vendorTotal=new Map();
+  vendorList.forEach(v=>{
+    let total=0;
+    CLAIM_TYPE_FILTER_MONTHS.forEach(m=>{
+      total+=packageDetailFilteredRows(group,new Set([v]),CURRENT_YEAR,m,null).length;
+    });
+    vendorTotal.set(v,total);
+  });
+  const sortedVendors=vendorList.slice().sort((a,b)=>(vendorTotal.get(b)||0)-(vendorTotal.get(a)||0));
+  const allRows=[];
+  const rowMeta=[];
+  sortedVendors.forEach(v=>{
+    CLAIM_TYPE_FILTER_MONTHS.forEach(m=>{
+      const rows=packageDetailFilteredRows(group,new Set([v]),CURRENT_YEAR,m,null);
+      rows.forEach(r=>{allRows.push(r);rowMeta.push({vendor:v,year:CURRENT_YEAR,month:m});});
+    });
+  });
+  if(!allRows.length){alert("다운로드할 원본 데이터가 없습니다.");return}
+  const data=popupDataFromRows(allRows,rawCols);
+  const headers=["업체","연도","월",...data.headers];
+  const values=data.values.map((v,i)=>[rowMeta[i].vendor,rowMeta[i].year,rowMeta[i].month,...v]);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...values]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"원본");
+  const safeLabel=safeExcelFileLabel(sortedVendors);
+  XLSX.writeFile(wb,`${group}_원본데이터_${safeLabel}.xlsx`);
+}
 function openPackageDetailSelectionTrendPopup(group){
   const {major,minor}=packageDetailCheckboxGroups(group);
   const checkboxLabels=major.concat(minor.length?["기타"]:[]);
@@ -1751,7 +1784,7 @@ function openPackageDetailSelectionTrendPopup(group){
     <div id="packageDetailOverallChart"></div>
     <div id="packageDetailOverallTable"></div>
     <hr>
-    <div class="section-head-row"><h2>${escHtml(group)} 세부항목 선택</h2><button type="button" id="packageDetailSelectAllBtn">전체선택</button><button type="button" id="packageDetailDownloadBtn">엑셀 다운로드</button><button type="button" id="packageDetailDownloadBothBtn">건수,금액 다운로드</button></div>
+    <div class="section-head-row"><h2>${escHtml(group)} 세부항목 선택</h2><button type="button" id="packageDetailSelectAllBtn">전체선택</button><button type="button" id="packageDetailDownloadBtn">엑셀 다운로드</button><button type="button" id="packageDetailDownloadBothBtn">건수,금액 다운로드</button><button type="button" id="packageDetailDownloadRawBtn">원본데이터 다운로드</button></div>
     <div id="packageDetailCheckboxes">${checkboxHtml}</div>
     <div id="packageDetailTrendChart"></div>
   </body></html>`);
@@ -1894,6 +1927,8 @@ function openPackageDetailSelectionTrendPopup(group){
   if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadPackageDetailFilterExcel(group,Array.from(selection),chartMode));
   const downloadBothBtn=popup.document.getElementById("packageDetailDownloadBothBtn");
   if(downloadBothBtn)downloadBothBtn.addEventListener("click",()=>downloadPackageDetailFilterExcelBoth(group,Array.from(selection)));
+  const downloadRawBtn=popup.document.getElementById("packageDetailDownloadRawBtn");
+  if(downloadRawBtn)downloadRawBtn.addEventListener("click",()=>downloadPackageDetailRawExcel(group,Array.from(selection)));
   if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
     const isAll=totalDetailCount>0&&selection.size>=totalDetailCount;
     popup.document.querySelectorAll("#packageDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
