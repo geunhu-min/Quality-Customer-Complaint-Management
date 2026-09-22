@@ -152,6 +152,11 @@ body>h1{display:none}
       <button type="button" onclick="downloadTypeLineOverallExcel()">전체현황 다운로드</button>
     </div>
     <div id="typeLineGrid" class="brandGrid"></div>
+    <div class="section-head-row" style="margin-top:20px;">
+      <h2>포장처별 현황 (월별 추이)</h2>
+      <button type="button" class="amt-toggle" id="packageLineAmtToggle" onclick="togglePackageLineChartMode()">금액별</button>
+    </div>
+    <div id="packageLineGrid" class="brandGrid"></div>
   </div>
   <div class="card full"><div id="c3" class="chart wideChart"></div></div>
   <div class="card full"><div id="c4" class="chart wideChart"></div></div>
@@ -579,10 +584,40 @@ function svgBarChartMarkup(categories,series,opts={}){
     }
     return `<text x="${x}" y="${yBase}" text-anchor="middle" class="wsvg-axis-label">${svgEsc(c)}</text>`;
   }).join("");
-  const svg=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" class="wsvg-svg" role="img">${axis}${bars.join("")}${xLabels}</svg>`;
+  const barValueFontSize=opts.barValueFontSize||12;
+  const barSvgStyle=`<style>.wsvg-grid{stroke:#edf0f3;stroke-width:1}.wsvg-axis-label{fill:#6b7280;font-size:12px;font-weight:700;font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif}.wsvg-bar-value{fill:#111827;font-size:${barValueFontSize}px;font-weight:800;font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif}</style>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" class="wsvg-svg" role="img">${barSvgStyle}${axis}${bars.join("")}${xLabels}</svg>`;
+  if(opts.svgOnly)return svg;
   const showLegend=opts.legend!==false && series.length>1 && series.some(s=>s.name);
   const title=opts.title?`<div class="wsvg-title">${svgEsc(opts.title)}</div>`:"";
   return `<div class="wsvg-chart-wrap">${title}${svg}${showLegend?svgLegendRow(series):""}</div>`;
+}
+function svgBarChartExportMarkup(categories,series,opts={}){
+  const chartW=opts.width||640,chartH=opts.height||300;
+  const title=opts.title||"";
+  const titleH=title?26:6;
+  const legendH=26;
+  const totalH=titleH+chartH+legendH;
+  const chartSvgFull=svgBarChartMarkup(categories,series,Object.assign({},opts,{svgOnly:true}));
+  const chartSvg=chartSvgFull.replace(/^<svg[^>]*>/,"").replace(/<\/svg>$/,"");
+  const fontFamily=`'Malgun Gothic',Segoe UI,Arial,sans-serif`;
+  const titleMarkup=title?`<text x="${chartW/2}" y="18" text-anchor="middle" font-size="15" font-weight="900" fill="#26313d" font-family="${fontFamily}">${svgEsc(title)}</text>`:"";
+  const legendItems=series.filter(s=>s.name);
+  const legendWidths=legendItems.map(s=>16+String(s.name).length*8);
+  const legendGap=20;
+  const legendTotalW=legendWidths.reduce((a,b)=>a+b,0)+legendGap*Math.max(0,legendItems.length-1);
+  let lx=(chartW-legendTotalW)/2;
+  const legendY=titleH+chartH+16;
+  const legendMarkup=legendItems.map((s,i)=>{
+    const w=legendWidths[i];
+    const item=`<circle cx="${lx+6}" cy="${legendY}" r="5.5" fill="${s.color}"></circle><text x="${lx+16}" y="${legendY+4}" font-size="12" font-weight="700" fill="#4b5563" font-family="${fontFamily}">${svgEsc(s.name)}</text>`;
+    lx+=w+legendGap;
+    return item;
+  }).join("");
+  const pad=14;
+  const outerW=chartW+pad*2,outerH=totalH+pad*2;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${outerW}" height="${outerH}" viewBox="0 0 ${outerW} ${outerH}"><rect x="0.5" y="0.5" width="${outerW-1}" height="${outerH-1}" rx="10" ry="10" fill="#ffffff" stroke="#dddddd" stroke-width="1"></rect><g transform="translate(${pad},${pad})">${titleMarkup}<g transform="translate(0,${titleH})">${chartSvg}</g>${legendMarkup}</g></svg>`;
+  return {svg,width:outerW,height:outerH};
 }
 function polarToCartesian(cx,cy,r,angleDeg){
   const rad=(angleDeg-90)*Math.PI/180;
@@ -750,7 +785,7 @@ function rebuildTotal(){
   });
 }
 function currentAccumYear(){return dashboard.years[accumViewYear]?accumViewYear:"2026"}
-function render(shouldSave=true){rebuildTotal();if(!dashboard.years[currentAccumYear()][active])active="종합";if(shouldSave)saveData();renderMonths();renderCompare();renderCharts();renderPackageGrid();renderBrandGrid();renderTypeLineGrid();renderClaimTypeFilterTable()}
+function render(shouldSave=true){rebuildTotal();if(!dashboard.years[currentAccumYear()][active])active="종합";if(shouldSave)saveData();renderMonths();renderCompare();renderCharts();renderPackageGrid();renderBrandGrid();renderTypeLineGrid();renderPackageLineGrid();renderClaimTypeFilterTable()}
 
 function renderMonths(){
   const yearObj=dashboard.years[currentAccumYear()];
@@ -1343,6 +1378,530 @@ function renderPackageGrid(){
       {name:"2025년",values:chartData.y25,color:"#1f73e8"},
       {name:"2026년",values:chartData.y26,color:"#e56a00"}
     ],packageChartMode==="amount"?{height:280,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{height:280,padBottom:30});
+  });
+}
+
+let packageLineChartMode="count";
+function togglePackageLineChartMode(){
+  packageLineChartMode=packageLineChartMode==="count"?"amount":"count";
+  document.getElementById("packageLineAmtToggle")?.classList.toggle("active",packageLineChartMode==="amount");
+  renderPackageLineGrid();
+}
+function renderPackageLineGrid(){
+  const grid=document.getElementById("packageLineGrid"); if(!grid)return;
+  grid.innerHTML=PACKAGE_GROUP_ORDER.map((group,idx)=>`<div class="brandCard"><div style="font-weight:bold;text-align:center;margin-bottom:8px;font-size:16px;">${escHtml(group)}</div><div id="packageLineMini_${idx}" class="brandMini" style="height:330px;" ondblclick="openPackageDetailSelectionTrendPopup('${jsStr(group)}')"></div><div class="hint">더블클릭 → 세부항목 선택 후 추이 새 창</div></div>`).join("");
+  PACKAGE_GROUP_ORDER.forEach((group,idx)=>{
+    const d=packageGroupMonthlyCounts(group);
+    const holder=document.getElementById("packageLineMini_"+idx);
+    holder.insertAdjacentHTML("beforebegin",trendSummaryHtml(d));
+    const chartData=packageLineChartMode==="amount"?packageGroupMonthlyAmounts(group):d;
+    holder.innerHTML=svgLineChartMarkup(chartData.months,[
+      {name:"2025년",values:chartData.y25,color:"#1f73e8"},
+      {name:"2026년",values:chartData.y26,color:"#e56a00"}
+    ],packageLineChartMode==="amount"?{height:280,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{height:280,padBottom:30});
+  });
+}
+function packageDetailCheckboxGroups(group){
+  const counts=new Map();
+  const curYearCounts=new Map();
+  ["2025","2026"].forEach(y=>Object.keys(dashboard.years[y]||{}).forEach(m=>{
+    if(m==="종합"||m==="선택월")return;
+    (dashboard.years[y][m].rows||[]).forEach(r=>{
+      if(packageGroupLabel(r["포장"])!==group)return;
+      const detail=String(r["포장"]||"").trim();
+      if(!detail)return;
+      counts.set(detail,(counts.get(detail)||0)+1);
+      if(y===CURRENT_YEAR)curYearCounts.set(detail,(curYearCounts.get(detail)||0)+1);
+    });
+  }));
+  if(group==="외주"){
+    const entries=Array.from(counts.entries()).filter(([name])=>curYearCounts.get(name)>0).sort((a,b)=>b[1]-a[1]);
+    return {major:entries.map(([name])=>name),minor:[]};
+  }
+  const entries=Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]);
+  const major=entries.filter(([,c])=>c>5).map(([name])=>name);
+  const minor=entries.filter(([,c])=>c<=5).map(([name])=>name);
+  return {major,minor};
+}
+function packageDetailFilteredRows(group,selectedValues,year,month,brands){
+  const rows=(dashboard.years[year][month]||{rows:[]}).rows||[];
+  return rows.filter(r=>{
+    if(packageGroupLabel(r["포장"])!==group)return false;
+    if(!selectedValues.has(String(r["포장"]||"").trim()))return false;
+    if(!rowMatchesBrandFilter(String(r["브랜드"]||"").trim(),brands))return false;
+    return true;
+  });
+}
+function packageDetailMonthlyStats(group,selectedValues,brands){
+  const prevRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,selectedValues,"2025",m,brands));
+  const curRows=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,selectedValues,"2026",m,brands));
+  const prevCounts=prevRows.map(rows=>rows.length);
+  const curCounts=curRows.map(rows=>rows.length);
+  const prevAmounts=prevRows.map(rows=>calcAmount(rows,0));
+  const curAmounts=curRows.map(rows=>calcAmount(rows,0));
+  return {prevCounts,curCounts,prevAmounts,curAmounts};
+}
+function packageDetailSelectionLabels(group,selectedValuesArr){
+  const {major,minor}=packageDetailCheckboxGroups(group);
+  const totalAvailable=major.length+minor.length;
+  const isAll=totalAvailable>0&&selectedValuesArr.length>=totalAvailable;
+  return {
+    label:isAll?"전체 선택":(selectedValuesArr.join(", ")||"선택없음"),
+    safeLabel:isAll?"전체선택":safeExcelFileLabel(selectedValuesArr)
+  };
+}
+function packageCheckedLabelsFromSelection(group,selectedValuesArr){
+  const {major,minor}=packageDetailCheckboxGroups(group);
+  const checkboxLabels=major.concat(minor.length?["기타"]:[]);
+  const expandLabel=label=>label==="기타"?minor:[label];
+  const selection=new Set(selectedValuesArr);
+  return checkboxLabels
+    .filter(label=>expandLabel(label).every(v=>selection.has(v)))
+    .map(label=>({label,vendors:expandLabel(label)}));
+}
+function packageVendorSeriesForExcel(group,checkedLabelInfos,isAmount){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const withCounts=checkedLabelInfos.map(info=>{
+    const rowsPerMonth=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,new Set(info.vendors),CURRENT_YEAR,m,null));
+    const counts=rowsPerMonth.map(r=>r.length);
+    const amounts=rowsPerMonth.map(r=>calcAmount(r,0));
+    return {name:info.label,counts,amounts};
+  }).sort((a,b)=>sum(b.counts)-sum(a.counts));
+  return withCounts.map((s,idx)=>({name:s.name,values:isAmount?s.amounts:s.counts,color:SVG_CHART_COLORS[idx%SVG_CHART_COLORS.length]}));
+}
+function writeExcelVendorSection(ws,row,title,series){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const titleCell=ws.getCell(row,1);
+  titleCell.value=title;
+  titleCell.alignment=EXCEL_CENTER;
+  row++;
+  ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"].forEach((val,ci)=>{
+    const cell=ws.getCell(row,ci+1);
+    cell.value=val;
+    cell.alignment=EXCEL_CENTER;
+    cell.fill=EXCEL_HEADER_FILL;
+    cell.border=EXCEL_THIN_BORDER;
+  });
+  row++;
+  series.forEach(s=>{
+    const argb="FF"+s.color.replace("#","").toUpperCase();
+    const labelCell=ws.getCell(row,1);
+    labelCell.value=s.name;
+    labelCell.alignment=EXCEL_CENTER;
+    labelCell.fill=EXCEL_HEADER_FILL;
+    labelCell.border=EXCEL_THIN_BORDER;
+    labelCell.font={color:{argb},bold:true};
+    s.values.forEach((v,ci)=>{
+      const c=ws.getCell(row,ci+2);
+      c.value=v;
+      c.border=EXCEL_THIN_BORDER;
+      c.numFmt="#,##0";
+      c.font={color:{argb},bold:true};
+    });
+    const totalCell=ws.getCell(row,s.values.length+2);
+    totalCell.value=sum(s.values);
+    totalCell.border=EXCEL_THIN_BORDER;
+    totalCell.numFmt="#,##0";
+    totalCell.font={color:{argb},bold:true};
+    row++;
+  });
+  return row+1;
+}
+function packageVendorCardSections(group,selection,isAmount){
+  const vendorArr=Array.from(selection);
+  const vendorCountSums=new Map(vendorArr.map(v=>[v,CLAIM_TYPE_FILTER_MONTHS.reduce((s,m)=>s+packageDetailFilteredRows(group,new Set([v]),CURRENT_YEAR,m,null).length,0)]));
+  const sortedVendors=vendorArr.slice().sort((a,b)=>vendorCountSums.get(b)-vendorCountSums.get(a));
+  const cards=[{label:"전체",vendors:vendorArr},...sortedVendors.map(v=>({label:v,vendors:[v]}))];
+  return cards.map(({label,vendors})=>{
+    const rowsPerMonth=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,new Set(vendors),CURRENT_YEAR,m,null));
+    const counts=rowsPerMonth.map(r=>r.length);
+    const amounts=rowsPerMonth.map(r=>calcAmount(r,0));
+    return {label,values:isAmount?amounts:counts};
+  });
+}
+function writeExcelSingleYearSection(ws,row,title,values){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const titleCell=ws.getCell(row,1);
+  titleCell.value=title;
+  titleCell.alignment=EXCEL_CENTER;
+  row++;
+  ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"].forEach((val,ci)=>{
+    const cell=ws.getCell(row,ci+1);
+    cell.value=val;
+    cell.alignment=EXCEL_CENTER;
+    cell.fill=EXCEL_HEADER_FILL;
+    cell.border=EXCEL_THIN_BORDER;
+  });
+  row++;
+  const labelCell=ws.getCell(row,1);
+  labelCell.value=`${CURRENT_YEAR.slice(2)}년`;
+  labelCell.alignment=EXCEL_CENTER;
+  labelCell.fill=EXCEL_HEADER_FILL;
+  labelCell.border=EXCEL_THIN_BORDER;
+  values.forEach((v,ci)=>{
+    const c=ws.getCell(row,ci+2);
+    c.value=v;
+    c.border=EXCEL_THIN_BORDER;
+    c.numFmt="#,##0";
+  });
+  const totalCell=ws.getCell(row,values.length+2);
+  totalCell.value=sum(values);
+  totalCell.border=EXCEL_THIN_BORDER;
+  totalCell.numFmt="#,##0";
+  row++;
+  return row+1;
+}
+async function downloadPackageDetailFilterExcel(group,selectedValuesArr,chartMode){
+  const selectedValues=new Set(selectedValuesArr);
+  const {label:selectedLabel,safeLabel}=packageDetailSelectionLabels(group,selectedValuesArr);
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const isAmount=chartMode==="amount";
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("포장처세부별월별금액");
+  ws.getCell(1,1).value="포장처";
+  ws.getCell(1,2).value=group;
+  ws.getCell(2,1).value="선택 세부항목";
+  ws.getCell(2,2).value=selectedLabel;
+  let row=4;
+  const CHART_W=1150,CHART_H=230;
+  const PACKAGE_DETAIL_EXCEL_COL_WIDTHS=[12,...Array.from({length:13},()=>11)];
+  const checkedLabelInfos=packageCheckedLabelsFromSelection(group,selectedValuesArr);
+  if(checkedLabelInfos.length){
+    const vendorTitle=`${group} 업체별 현황 (${CURRENT_YEAR.slice(2)}년)`;
+    const vendorSeries=packageVendorSeriesForExcel(group,checkedLabelInfos,isAmount);
+    const vendorBarValueFontSize=vendorSeries.length>6?8:vendorSeries.length>3?10:12;
+    const vendorChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorSeries,isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:vendorTitle,barValueFontSize:vendorBarValueFontSize,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:vendorTitle,barValueFontSize:vendorBarValueFontSize});
+    try{
+      const dataUrl=await svgMarkupToPngDataUrl(vendorChart.svg,vendorChart.width,vendorChart.height);
+      const imageId=wb.addImage({base64:dataUrl.split(",")[1],extension:"png"});
+      ws.addImage(imageId,{tl:{col:0,row:row-1},ext:{width:vendorChart.width,height:vendorChart.height}});
+      row+=Math.max(1,Math.ceil(vendorChart.height/20)-2);
+    }catch(e){console.error("업체별 차트 이미지 삽입 실패:",e);}
+    row=writeExcelVendorSection(ws,row,vendorTitle,vendorSeries);
+    row++;
+  }
+  if(group==="외주"){
+    const cards=packageVendorCardSections(group,selectedValues,isAmount);
+    for(const card of cards){
+      const chart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:card.label,values:card.values,color:"#1f73e8"}
+      ],isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:card.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:card.label});
+      try{
+        const dataUrl=await svgMarkupToPngDataUrl(chart.svg,chart.width,chart.height);
+        const imageId=wb.addImage({base64:dataUrl.split(",")[1],extension:"png"});
+        ws.addImage(imageId,{tl:{col:0,row:row-1},ext:{width:chart.width,height:chart.height}});
+        row+=Math.max(1,Math.ceil(chart.height/20)-2);
+      }catch(e){console.error("차트 이미지 삽입 실패:",card.label,e);}
+      row=writeExcelSingleYearSection(ws,row,card.label,card.values);
+      row++;
+    }
+  }else{
+    for(const s of TYPE_DETAIL_TREND_BRAND_SECTIONS){
+      const stats=packageDetailMonthlyStats(group,selectedValues,s.brands);
+      if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)continue;
+      const chart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:"2025년",values:isAmount?stats.prevAmounts:stats.prevCounts,color:"#1f73e8"},
+        {name:"2026년",values:isAmount?stats.curAmounts:stats.curCounts,color:"#e56a00"}
+      ],isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:s.label});
+      try{
+        const dataUrl=await svgMarkupToPngDataUrl(chart.svg,chart.width,chart.height);
+        const imageId=wb.addImage({base64:dataUrl.split(",")[1],extension:"png"});
+        ws.addImage(imageId,{tl:{col:0,row:row-1},ext:{width:chart.width,height:chart.height}});
+        row+=Math.max(1,Math.ceil(chart.height/20)-2);
+      }catch(e){console.error("차트 이미지 삽입 실패:",s.label,e);}
+      row=writeExcelStatsSection(ws,row,s.label,stats);
+      row++;
+    }
+  }
+  finalizeExcelSheet(ws,PACKAGE_DETAIL_EXCEL_COL_WIDTHS);
+  saveWorkbookAsFile(wb,`${group}_세부별_월별금액_${safeLabel}.xlsx`);
+}
+async function downloadPackageDetailFilterExcelBoth(group,selectedValuesArr){
+  const selectedValues=new Set(selectedValuesArr);
+  const {label:selectedLabel,safeLabel}=packageDetailSelectionLabels(group,selectedValuesArr);
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("포장처세부별월별금액");
+  ws.getCell(1,1).value="포장처";
+  ws.getCell(1,2).value=group;
+  ws.getCell(2,1).value="선택 세부항목";
+  ws.getCell(2,2).value=selectedLabel;
+  let row=4;
+  const CHART_W=560,CHART_H=230,RIGHT_COL=7;
+  const PACKAGE_DETAIL_EXCEL_COL_WIDTHS=[12,...Array.from({length:13},()=>11)];
+  const checkedLabelInfos=packageCheckedLabelsFromSelection(group,selectedValuesArr);
+  if(checkedLabelInfos.length){
+    const countTitle=`${group} 업체별 현황(건) (${CURRENT_YEAR.slice(2)}년)`;
+    const amountTitle=`${group} 업체별 현황(금액) (${CURRENT_YEAR.slice(2)}년)`;
+    const vendorCountSeries=packageVendorSeriesForExcel(group,checkedLabelInfos,false);
+    const vendorAmountSeries=packageVendorSeriesForExcel(group,checkedLabelInfos,true);
+    const vendorBarValueFontSize=vendorCountSeries.length>6?8:vendorCountSeries.length>3?10:12;
+    const vendorCountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorCountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:countTitle,barValueFontSize:vendorBarValueFontSize});
+    const vendorAmountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorAmountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:amountTitle,barValueFontSize:vendorBarValueFontSize,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
+    try{
+      const [vendorCountUrl,vendorAmountUrl]=await Promise.all([
+        svgMarkupToPngDataUrl(vendorCountChart.svg,vendorCountChart.width,vendorCountChart.height),
+        svgMarkupToPngDataUrl(vendorAmountChart.svg,vendorAmountChart.width,vendorAmountChart.height)
+      ]);
+      const vendorCountImgId=wb.addImage({base64:vendorCountUrl.split(",")[1],extension:"png"});
+      ws.addImage(vendorCountImgId,{tl:{col:0,row:row-1},ext:{width:vendorCountChart.width,height:vendorCountChart.height}});
+      const vendorAmountImgId=wb.addImage({base64:vendorAmountUrl.split(",")[1],extension:"png"});
+      ws.addImage(vendorAmountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:vendorAmountChart.width,height:vendorAmountChart.height}});
+      row+=Math.max(1,Math.ceil(vendorCountChart.height/20)-2);
+    }catch(e){console.error("업체별 차트 이미지 삽입 실패:",e);}
+    row=writeExcelVendorSection(ws,row,countTitle,vendorCountSeries);
+    row++;
+    row=writeExcelVendorSection(ws,row,amountTitle,vendorAmountSeries);
+    row++;
+  }
+  if(group==="외주"){
+    const countCards=packageVendorCardSections(group,selectedValues,false);
+    const amountCards=packageVendorCardSections(group,selectedValues,true);
+    for(let i=0;i<countCards.length;i++){
+      const countCard=countCards[i],amountCard=amountCards[i];
+      const countChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:countCard.label,values:countCard.values,color:"#1f73e8"}
+      ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${countCard.label}(건)`});
+      const amountChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:amountCard.label,values:amountCard.values,color:"#1f73e8"}
+      ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${amountCard.label}(금액)`,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
+      try{
+        const [countUrl,amountUrl]=await Promise.all([
+          svgMarkupToPngDataUrl(countChart.svg,countChart.width,countChart.height),
+          svgMarkupToPngDataUrl(amountChart.svg,amountChart.width,amountChart.height)
+        ]);
+        const countImgId=wb.addImage({base64:countUrl.split(",")[1],extension:"png"});
+        ws.addImage(countImgId,{tl:{col:0,row:row-1},ext:{width:countChart.width,height:countChart.height}});
+        const amountImgId=wb.addImage({base64:amountUrl.split(",")[1],extension:"png"});
+        ws.addImage(amountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:amountChart.width,height:amountChart.height}});
+        row+=Math.max(1,Math.ceil(countChart.height/20)-2);
+      }catch(e){console.error("차트 이미지 삽입 실패:",countCard.label,e);}
+      row=writeExcelSingleYearSection(ws,row,`${countCard.label}(건)`,countCard.values);
+      row=writeExcelSingleYearSection(ws,row,`${amountCard.label}(금액)`,amountCard.values);
+      row++;
+    }
+  }else{
+    for(const s of TYPE_DETAIL_TREND_BRAND_SECTIONS){
+      const stats=packageDetailMonthlyStats(group,selectedValues,s.brands);
+      if(sum(stats.prevCounts)+sum(stats.curCounts)<=0)continue;
+      const countChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:"2025년",values:stats.prevCounts,color:"#1f73e8"},
+        {name:"2026년",values:stats.curCounts,color:"#e56a00"}
+      ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${s.label}(건)`});
+      const amountChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:"2025년",values:stats.prevAmounts,color:"#1f73e8"},
+        {name:"2026년",values:stats.curAmounts,color:"#e56a00"}
+      ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${s.label}(금액)`,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
+      try{
+        const [countUrl,amountUrl]=await Promise.all([
+          svgMarkupToPngDataUrl(countChart.svg,countChart.width,countChart.height),
+          svgMarkupToPngDataUrl(amountChart.svg,amountChart.width,amountChart.height)
+        ]);
+        const countImgId=wb.addImage({base64:countUrl.split(",")[1],extension:"png"});
+        ws.addImage(countImgId,{tl:{col:0,row:row-1},ext:{width:countChart.width,height:countChart.height}});
+        const amountImgId=wb.addImage({base64:amountUrl.split(",")[1],extension:"png"});
+        ws.addImage(amountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:amountChart.width,height:amountChart.height}});
+        row+=Math.max(1,Math.ceil(countChart.height/20)-2);
+      }catch(e){console.error("차트 이미지 삽입 실패:",s.label,e);}
+      row=writeExcelStatsSection(ws,row,s.label,stats);
+      row++;
+    }
+  }
+  finalizeExcelSheet(ws,PACKAGE_DETAIL_EXCEL_COL_WIDTHS);
+  saveWorkbookAsFile(wb,`${group}_세부별_월별건수금액_${safeLabel}.xlsx`);
+}
+function openPackageDetailSelectionTrendPopup(group){
+  const {major,minor}=packageDetailCheckboxGroups(group);
+  const checkboxLabels=major.concat(minor.length?["기타"]:[]);
+  const expandLabel=label=>label==="기타"?minor:[label];
+  const selection=new Set();
+  const checkboxHtml=checkboxLabels.length?checkboxLabels.map(label=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;"><input type="checkbox" onchange="window.__packageDetailToggle('${jsStr(label)}',this.checked)"> ${escHtml(label)}</label>`).join(""):'<span style="color:#777;">세부 항목 데이터가 없습니다.</span>';
+  const popup=window.open("","claimAccumPackageDetailSelectionTrend_"+Date.now(),"popup=yes,width=1120,height=900,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+  if(!popup)return;
+  popup.document.open();
+  popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>${escHtml(group)} 세부항목 선택 · 월별 추이</title><style>
+    html,body{margin:0;padding:0}
+    body{font-family:"Malgun Gothic",Segoe UI,Arial,sans-serif;padding:24px;color:#0f172a;background:#fff;box-sizing:border-box}
+    .wsvg-title{margin:0 0 26px;font-size:16px;font-weight:900;color:#26313d;text-align:center}
+    .wsvg-chart-wrap{display:flex;flex-direction:column;max-width:1050px;width:100%;margin:0 auto 20px;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fff;box-sizing:border-box}
+    .wsvg-chart-wrap:last-child{margin-bottom:0}
+    .wsvg-svg{display:block;width:100%}
+    .wsvg-grid{stroke:#edf0f3;stroke-width:1}
+    .wsvg-axis-label{fill:#6b7280;font-size:12px;font-weight:700}
+    .wsvg-legend-row{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 18px;margin-top:10px}
+    .wsvg-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#4b5563}
+    .wsvg-legend-item i{width:11px;height:11px;border-radius:50%}
+    .wsvg-point-label{font-size:11px;font-weight:700}
+    .section-head-row{display:flex;align-items:center;gap:14px;margin:28px 0 12px;max-width:1050px;margin-left:auto;margin-right:auto}
+    .section-head-row:first-of-type{margin-top:0}
+    .section-head-row h2{margin:0;font-size:16px}
+    hr{max-width:1050px;margin:8px auto 0;border:none;border-top:1px solid #e2e8f0}
+    #packageDetailCheckboxes,#packageDetailTrendChart,#packageDetailOverallChart,#packageDetailOverallTable{max-width:1050px;margin:0 auto}
+    button{cursor:pointer;border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:6px 12px;font-size:13px}
+    button:hover{background:#f3f4f6}
+    button.active{background:#1f73e8;color:#fff;border-color:#1f73e8}
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th,td{border:1px solid #e2e8f0;padding:6px 10px;white-space:nowrap}
+    th{background:#f8fafc}
+    .wsvg-tooltip{position:fixed;pointer-events:none;background:#20242b;color:#fff;padding:10px 14px;border-radius:8px;font-size:15px;font-weight:700;line-height:1.5;box-shadow:0 6px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .08s;z-index:999;white-space:nowrap}
+    .wsvg-tooltip.show{opacity:1}
+    .wsvg-tooltip .wsvg-tooltip-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:middle}
+  </style></head><body>
+    <div class="section-head-row"><h2>${escHtml(group)} 전체 현황 (월별 추이)</h2><button type="button" id="packageDetailAmtToggle">금액별</button></div>
+    <div id="packageDetailOverallChart"></div>
+    <div id="packageDetailOverallTable"></div>
+    <hr>
+    <div class="section-head-row"><h2>${escHtml(group)} 세부항목 선택</h2><button type="button" id="packageDetailSelectAllBtn">전체선택</button><button type="button" id="packageDetailDownloadBtn">엑셀 다운로드</button><button type="button" id="packageDetailDownloadBothBtn">건수,금액 다운로드</button></div>
+    <div id="packageDetailCheckboxes">${checkboxHtml}</div>
+    <div id="packageDetailTrendChart"></div>
+  </body></html>`);
+  popup.document.close();
+  attachEscToClose(popup);
+  (function setupTooltip(){
+    function ensureTip(){
+      let el=popup.document.getElementById("wsvgTooltip");
+      if(!el){
+        el=popup.document.createElement("div");
+        el.id="wsvgTooltip";
+        el.className="wsvg-tooltip";
+        popup.document.body.appendChild(el);
+      }
+      return el;
+    }
+    popup.document.addEventListener("mouseover",e=>{
+      const target=e.target.closest&&e.target.closest("[data-tip]");
+      if(!target)return;
+      const tip=ensureTip();
+      const color=target.getAttribute("data-tip-color");
+      tip.innerHTML=(color?`<span class="wsvg-tooltip-dot" style="background:${color}"></span>`:"")+target.getAttribute("data-tip");
+      tip.classList.add("show");
+    });
+    popup.document.addEventListener("mousemove",e=>{
+      const target=e.target.closest&&e.target.closest("[data-tip]");
+      if(!target)return;
+      const tip=ensureTip();
+      tip.style.left=(e.clientX+16)+"px";
+      tip.style.top=(e.clientY-14)+"px";
+    });
+    popup.document.addEventListener("mouseout",e=>{
+      const target=e.target.closest&&e.target.closest("[data-tip]");
+      if(!target)return;
+      const tip=popup.document.getElementById("wsvgTooltip");
+      if(tip)tip.classList.remove("show");
+    });
+  })();
+  let chartMode="count";
+  function renderOverallTable(series){
+    const holder=popup.document.getElementById("packageDetailOverallTable");
+    if(!holder)return;
+    if(!series||!series.length){holder.innerHTML="";return}
+    const sum=arr=>arr.reduce((a,b)=>a+b,0);
+    const fmt=v=>chartMode==="amount"?Math.round(v).toLocaleString():v.toLocaleString();
+    const rows=series.map(s=>`<tr><th style="color:${s.color}">${escHtml(s.name)}</th>${s.values.map(v=>`<td style="text-align:right">${fmt(v)}</td>`).join("")}<td style="text-align:right;font-weight:bold">${fmt(sum(s.values))}</td></tr>`).join("");
+    holder.innerHTML=`<div style="overflow-x:auto;margin-top:12px;"><table><tr><th>구분</th>${CLAIM_TYPE_FILTER_MONTHS.map(m=>`<th>${m}</th>`).join("")}<th>합계</th></tr>${rows}</table></div>`;
+  }
+  function renderOverallChart(){
+    const holder=popup.document.getElementById("packageDetailOverallChart");
+    if(!holder)return;
+    if(!selection.size){
+      const d=chartMode==="amount"?packageGroupMonthlyAmounts(group):packageGroupMonthlyCounts(group);
+      holder.innerHTML=svgLineChartMarkup(d.months,[
+        {name:"2025년",values:d.y25,color:"#1f73e8"},
+        {name:"2026년",values:d.y26,color:"#e56a00"}
+      ],chartMode==="amount"?{width:1050,height:340,padBottom:30,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:340,padBottom:30});
+      renderOverallTable(null);
+      return;
+    }
+    const checkedLabels=checkboxLabels.filter(label=>expandLabel(label).every(v=>selection.has(v)));
+    const sum=arr=>arr.reduce((a,b)=>a+b,0);
+    let series=checkedLabels.map(label=>{
+      const vendors=expandLabel(label);
+      const rowsPerMonth=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,new Set(vendors),CURRENT_YEAR,m,null));
+      const counts=rowsPerMonth.map(r=>r.length);
+      const amounts=rowsPerMonth.map(r=>calcAmount(r,0));
+      return {name:label,counts,amounts};
+    }).sort((a,b)=>sum(b.counts)-sum(a.counts));
+    series=series.map((s,idx)=>({name:s.name,values:chartMode==="amount"?s.amounts:s.counts,color:SVG_CHART_COLORS[idx%SVG_CHART_COLORS.length]}));
+    const barValueFontSize=series.length>6?8:series.length>3?10:12;
+    holder.innerHTML=svgBarChartMarkup(CLAIM_TYPE_FILTER_MONTHS,series,chartMode==="amount"?{width:1050,height:360,padBottom:30,barValueFontSize,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:360,padBottom:30,barValueFontSize});
+    renderOverallTable(series);
+  }
+  function renderTrendChart(){
+    const holder=popup.document.getElementById("packageDetailTrendChart");
+    if(!holder)return;
+    if(!selection.size){
+      holder.innerHTML='<div style="text-align:center;color:#8b95a1;padding:30px 0">세부항목을 선택하면 추이 그래프가 표시됩니다.</div>';
+      return;
+    }
+    if(group==="외주"){
+      const vendorArr=Array.from(selection);
+      const vendorCountSums=new Map(vendorArr.map(v=>[v,CLAIM_TYPE_FILTER_MONTHS.reduce((s,m)=>s+packageDetailFilteredRows(group,new Set([v]),CURRENT_YEAR,m,null).length,0)]));
+      const sortedVendors=vendorArr.slice().sort((a,b)=>vendorCountSums.get(b)-vendorCountSums.get(a));
+      const vendorSectionsData=[{label:"전체",vendors:vendorArr},...sortedVendors.map(v=>({label:v,vendors:[v]}))];
+      holder.innerHTML=vendorSectionsData.map(({label,vendors})=>{
+        const rowsPerMonth=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,new Set(vendors),CURRENT_YEAR,m,null));
+        const counts=rowsPerMonth.map(r=>r.length);
+        const amounts=rowsPerMonth.map(r=>calcAmount(r,0));
+        const values=chartMode==="amount"?amounts:counts;
+        return svgLineChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+          {name:label,values,color:"#1f73e8"}
+        ],chartMode==="amount"?{width:1050,height:280,padBottom:30,title:label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:280,padBottom:30,title:label});
+      }).join("");
+      return;
+    }
+    const sections=TYPE_DETAIL_TREND_BRAND_SECTIONS
+      .map(s=>({s,stats:packageDetailMonthlyStats(group,selection,s.brands)}))
+      .filter(({stats})=>stats.prevCounts.reduce((a,b)=>a+b,0)+stats.curCounts.reduce((a,b)=>a+b,0)>0);
+    if(!sections.length){
+      holder.innerHTML='<div style="text-align:center;color:#8b95a1;padding:30px 0">선택한 세부항목에 해당하는 데이터가 없습니다.</div>';
+      return;
+    }
+    holder.innerHTML=sections.map(({s,stats})=>{
+      const {prevCounts,curCounts,prevAmounts,curAmounts}=stats;
+      const values25=chartMode==="amount"?prevAmounts:prevCounts;
+      const values26=chartMode==="amount"?curAmounts:curCounts;
+      return svgLineChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        {name:"2025년",values:values25,color:"#1f73e8"},
+        {name:"2026년",values:values26,color:"#e56a00"}
+      ],chartMode==="amount"?{width:1050,height:280,padBottom:30,title:s.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:280,padBottom:30,title:s.label});
+    }).join("");
+  }
+  const totalDetailCount=major.length+minor.length;
+  const selectAllBtn=popup.document.getElementById("packageDetailSelectAllBtn");
+  function syncSelectAllBtn(){
+    if(!selectAllBtn)return;
+    const isAll=totalDetailCount>0&&selection.size>=totalDetailCount;
+    selectAllBtn.textContent=isAll?"전체해제":"전체선택";
+    selectAllBtn.classList.toggle("active",isAll);
+  }
+  popup.__packageDetailToggle=(label,checked)=>{
+    expandLabel(label).forEach(v=>{if(checked)selection.add(v);else selection.delete(v)});
+    syncSelectAllBtn();
+    renderOverallChart();
+    renderTrendChart();
+  };
+  renderOverallChart();
+  renderTrendChart();
+  syncSelectAllBtn();
+  const amtToggleBtn=popup.document.getElementById("packageDetailAmtToggle");
+  if(amtToggleBtn)amtToggleBtn.addEventListener("click",()=>{
+    chartMode=chartMode==="count"?"amount":"count";
+    amtToggleBtn.classList.toggle("active",chartMode==="amount");
+    renderOverallChart();
+    renderTrendChart();
+  });
+  const downloadBtn=popup.document.getElementById("packageDetailDownloadBtn");
+  if(downloadBtn)downloadBtn.addEventListener("click",()=>downloadPackageDetailFilterExcel(group,Array.from(selection),chartMode));
+  const downloadBothBtn=popup.document.getElementById("packageDetailDownloadBothBtn");
+  if(downloadBothBtn)downloadBothBtn.addEventListener("click",()=>downloadPackageDetailFilterExcelBoth(group,Array.from(selection)));
+  if(selectAllBtn)selectAllBtn.addEventListener("click",()=>{
+    const isAll=totalDetailCount>0&&selection.size>=totalDetailCount;
+    popup.document.querySelectorAll("#packageDetailCheckboxes input[type=checkbox]").forEach(cb=>{cb.checked=!isAll});
+    if(isAll)selection.clear();
+    else checkboxLabels.forEach(label=>expandLabel(label).forEach(v=>selection.add(v)));
+    syncSelectAllBtn();
+    renderOverallChart();
+    renderTrendChart();
   });
 }
 
