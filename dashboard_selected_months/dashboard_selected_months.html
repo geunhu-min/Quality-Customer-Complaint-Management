@@ -1583,7 +1583,7 @@ async function downloadPackageDetailFilterExcel(group,selectedValuesArr,chartMod
   if(group==="외주"){
     const cards=packageVendorCardSections(group,selectedValues,isAmount);
     for(const card of cards){
-      const chart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      const chart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
         {name:card.label,values:card.values,color:"#1f73e8"}
       ],isAmount?{width:CHART_W,height:CHART_H,padBottom:30,title:card.label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:CHART_W,height:CHART_H,padBottom:30,title:card.label});
       try{
@@ -1659,10 +1659,10 @@ async function downloadPackageDetailFilterExcelBoth(group,selectedValuesArr){
     const amountCards=packageVendorCardSections(group,selectedValues,true);
     for(let i=0;i<countCards.length;i++){
       const countCard=countCards[i],amountCard=amountCards[i];
-      const countChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      const countChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
         {name:countCard.label,values:countCard.values,color:"#1f73e8"}
       ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${countCard.label}(건)`});
-      const amountChart=svgLineChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+      const amountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,[
         {name:amountCard.label,values:amountCard.values,color:"#1f73e8"}
       ],{width:CHART_W,height:CHART_H,padBottom:30,title:`${amountCard.label}(금액)`,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
       try{
@@ -1843,7 +1843,7 @@ function openPackageDetailSelectionTrendPopup(group){
         const counts=rowsPerMonth.map(r=>r.length);
         const amounts=rowsPerMonth.map(r=>calcAmount(r,0));
         const values=chartMode==="amount"?amounts:counts;
-        return svgLineChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
+        return svgBarChartMarkup(CLAIM_TYPE_FILTER_MONTHS,[
           {name:label,values,color:"#1f73e8"}
         ],chartMode==="amount"?{width:1050,height:280,padBottom:30,title:label,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter}:{width:1050,height:280,padBottom:30,title:label});
       }).join("");
