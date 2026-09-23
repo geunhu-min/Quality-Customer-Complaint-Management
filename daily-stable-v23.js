@@ -55,6 +55,14 @@
   function pad(n) { return String(n).padStart(2, "0"); }
   function iso(y, m, d) { return y + "-" + pad(m) + "-" + pad(d); }
   function dateKey(d) { return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+  function dateRangeKeys(startKey, endKey) {
+    var sp = startKey.split("-"), ep = endKey.split("-");
+    var cur = new Date(+sp[0], +sp[1] - 1, +sp[2]);
+    var end = new Date(+ep[0], +ep[1] - 1, +ep[2]);
+    var keys = [];
+    while (cur <= end) { keys.push(dateKey(cur)); cur.setDate(cur.getDate() + 1); }
+    return keys;
+  }
   function parseDate(v) {
     if (v instanceof Date && !isNaN(v)) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
     if (typeof v === "number" && isFinite(v) && v > 20000) {
@@ -340,6 +348,23 @@
   function dailyAmountAxisFormatter(tick) {
     return Number((tick / 1000000).toFixed(1)) + "백만원";
   }
+  function smoothLinePath(points) {
+    if (!points.length) return "";
+    if (points.length === 1) return "M" + points[0].x + "," + points[0].y;
+    var d = "M" + points[0].x + "," + points[0].y;
+    for (var i = 0; i < points.length - 1; i++) {
+      var p0 = points[i === 0 ? i : i - 1];
+      var p1 = points[i];
+      var p2 = points[i + 1];
+      var p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+      var cp1x = p1.x + (p2.x - p0.x) / 6;
+      var cp1y = p1.y + (p2.y - p0.y) / 6;
+      var cp2x = p2.x - (p3.x - p1.x) / 6;
+      var cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += " C" + cp1x + "," + cp1y + " " + cp2x + "," + cp2y + " " + p2.x + "," + p2.y;
+    }
+    return d;
+  }
   function dailyLineChartMarkup(points, unit, labelFormatter, axisFormatter) {
     var width = 640, height = 220, padLeft = 56, padRight = 14, padTop = 26, padBottom = 30;
     var innerW = width - padLeft - padRight;
@@ -351,8 +376,8 @@
       return { label: p.label, value: p.value, x: padLeft + i * step, y: padTop + innerH - (niceMax ? (p.value / niceMax) * innerH : 0) };
     });
     var coords = allCoords.filter(function (c) { return c.value > 0; });
-    var line = coords.map(function (c) { return c.x + ',' + c.y; }).join(' ');
-    var area = coords.length ? (coords[0].x + ',' + (padTop + innerH) + ' ' + line + ' ' + coords[coords.length - 1].x + ',' + (padTop + innerH)) : '';
+    var linePath = smoothLinePath(coords);
+    var areaPath = coords.length ? (linePath + ' L' + coords[coords.length - 1].x + ',' + (padTop + innerH) + ' L' + coords[0].x + ',' + (padTop + innerH) + ' Z') : '';
     var axis = ticks.map(function (tick) {
       var y = padTop + innerH - (tick / niceMax) * innerH;
       var label = axisFormatter ? axisFormatter(tick) : comma(tick);
@@ -364,8 +389,8 @@
     }).join('');
     return '<div class="weekly-line-chart"><svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none" role="img">' +
       axis +
-      (area ? '<polygon class="weekly-line-area" points="' + area + '"></polygon>' : '') +
-      (line ? '<polyline class="weekly-line" points="' + line + '"></polyline>' : '') +
+      (areaPath ? '<path class="weekly-line-area" d="' + areaPath + '"></path>' : '') +
+      (linePath ? '<path class="weekly-line" d="' + linePath + '"></path>' : '') +
       coords.map(function (c) {
         var label = labelFormatter ? labelFormatter(c.value) : (comma(c.value) + unit);
         return '<g><circle cx="' + c.x + '" cy="' + c.y + '" r="4.5"></circle>' +
@@ -790,6 +815,7 @@
   }
   var lastWeeklyReceiptRows = [];
   var lastWeeklyReceiptPopupTitle = "";
+  var lastWeeklyReceiptRange = null;
   function renderWeeklyReceiptTable() {
     var table = document.getElementById("weeklyReceiptDetailTable");
     if (!table) return;
@@ -807,6 +833,7 @@
           ? rows.filter(function (r) { return weeklyReceiptSourceLabel(r.source) === packagingFilter; })
           : rows;
     lastWeeklyReceiptRows = rows;
+    lastWeeklyReceiptRange = { startKey: s.startKey, endKey: s.endKey };
     var packagingLabel = packagingFilter === PACKAGING_OTHER_VALUE ? "기타" : packagingFilter === PACKAGING_COMBINED_VALUE ? PACKAGING_COMBINED_LABEL : (packagingFilter || "전체");
     lastWeeklyReceiptPopupTitle = s.year + "년 " + formatWeekRangeLabel(s.startKey, s.endKey) + " (" + packagingLabel + ")";
     var html = detailTableMarkup(rows);
@@ -823,34 +850,48 @@
     var top = topItems(rows, 3);
     var main = top[0] || { key: "-", qty: 0 };
     var catItems = dayTypePieItems(rows).filter(function (item) { return item.value > 0; });
-    var popup = window.open("", "weeklyReceiptSummaryV23_" + Date.now(), "popup=yes,width=1800,height=840,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
+    var popup = window.open("", "weeklyReceiptSummaryV23_" + Date.now(), "popup=yes,width=1100,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes");
     if (!popup) return;
     var catHtml = catItems.map(function (item) { return '<div>' + esc(item.label) + ' <b>' + comma(item.value) + '건</b></div>'; }).join("");
     var tagsHtml = top.map(function (t) { return '<span>' + esc(t.key) + ' <b>' + comma(t.qty) + '건</b></span>'; }).join("");
+    var rangeDays = lastWeeklyReceiptRange ? dateRangeKeys(lastWeeklyReceiptRange.startKey, lastWeeklyReceiptRange.endKey) : [];
+    var lossBreakdown = dayBreakdown(rangeDays, rows);
+    var lossChartHtml = dailyLineChartMarkup(lossBreakdown.map(function (b) { return { label: b.label, value: b.amount }; }), '원', dailyAmountShort, dailyAmountAxisFormatter);
     popup.document.write('<!doctype html><html lang="ko"><head><meta charset="utf-8" /><title>' + esc(lastWeeklyReceiptPopupTitle) + '</title><style>' +
-      'body{margin:0;padding:20px;color:#111827;background:#f7f7f7;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif}' +
-      'header{position:relative;padding:22px 30px;margin-bottom:18px;border-radius:18px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10)}' +
-      'h1{margin:0;font-size:36px}.close{position:absolute;right:18px;top:16px;border:0;background:transparent;font-size:44px;font-weight:900;cursor:pointer}' +
-      '.history-download{position:absolute;right:90px;top:24px;border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:10px 18px;font-size:20px;font-weight:800;cursor:pointer;color:#1d4ed8}' +
-      '.dominant-download{position:absolute;right:260px;top:24px;border:1px solid #d0d7de;background:#fff;border-radius:8px;padding:10px 18px;font-size:20px;font-weight:800;cursor:pointer;color:#1d4ed8}' +
-      '.kpi-panel{background:#e9edf5;border-radius:18px;padding:24px}' +
-      '.kpi-grid{display:flex;gap:22px}' +
-      '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:10px;padding:22px 24px}' +
-      '.kpi span{display:block;font-size:26px;color:#374151;font-weight:800;margin-bottom:16px}' +
-      '.kpi strong{font-size:52px;color:#c22323}' +
-      '.kpi strong.purple{color:#7950f2;font-size:40px}' +
-      '.kpi em{font-style:normal;font-size:26px;color:#6b7280;margin-left:6px}' +
-      '.kpi small{display:block;font-size:23px;color:#8b95a1;margin-top:10px}' +
-      '.cat-breakdown{display:grid;gap:8px;margin-top:18px;font-size:25px;color:#4b5563;font-weight:700}' +
-      '.kpi-tags{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}' +
-      '.kpi-tags span{display:inline-flex;align-items:center;gap:4px;background:#eef1f7;border-radius:20px;padding:6px 16px;font-size:23px;font-weight:700;color:#374151}' +
+      'body{margin:0;padding:12px;color:#111827;background:#f7f7f7;font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif}' +
+      'header{position:relative;padding:12px 16px;margin-bottom:10px;border-radius:12px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10)}' +
+      'h1{margin:0;font-size:20px}.close{position:absolute;right:10px;top:8px;border:0;background:transparent;font-size:26px;font-weight:900;cursor:pointer}' +
+      '.header-actions{position:absolute;right:36px;top:10px;display:flex;gap:8px}' +
+      '.history-download,.dominant-download{border:1px solid #d0d7de;background:#fff;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;color:#1d4ed8;white-space:nowrap}' +
+      '.kpi-panel{background:#e9edf5;border-radius:12px;padding:14px}' +
+      '.kpi-grid{display:flex;gap:12px}' +
+      '.kpi{flex:1;background:#fff;border:1px solid #edf0f4;border-radius:8px;padding:12px 14px}' +
+      '.kpi span{display:block;font-size:14px;color:#374151;font-weight:800;margin-bottom:8px}' +
+      '.kpi strong{font-size:28px;color:#c22323}' +
+      '.kpi strong.purple{color:#7950f2;font-size:20px}' +
+      '.kpi em{font-style:normal;font-size:14px;color:#6b7280;margin-left:4px}' +
+      '.kpi small{display:block;font-size:12px;color:#8b95a1;margin-top:6px}' +
+      '.cat-breakdown{display:grid;gap:4px;margin-top:8px;font-size:13px;color:#4b5563;font-weight:700}' +
+      '.kpi-tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}' +
+      '.kpi-tags span{display:inline-flex;align-items:center;gap:3px;background:#eef1f7;border-radius:14px;padding:3px 9px;font-size:12px;font-weight:700;color:#374151}' +
       '.kpi-tags span b{font-weight:900}' +
-      '</style></head><body><header><button class="dominant-download" onclick="if(window.opener && window.opener.__dailyStableOpenWeeklyReceiptDominant){window.opener.__dailyStableOpenWeeklyReceiptDominant();}">접수 다발품목</button><button class="history-download" onclick="if(window.opener && window.opener.__dailyStableExportWeeklyReceipt){window.opener.__dailyStableExportWeeklyReceipt();}">이력 다운로드</button><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
+      '.loss-chart-card{margin-top:10px;background:#fff;border:1px solid #edf0f4;border-radius:8px;padding:12px 14px}' +
+      '.loss-chart-card h3{margin:0 0 8px;color:#26313d;font-size:14px;font-weight:900}' +
+      '.weekly-line-chart{height:280px}' +
+      '.weekly-line-chart svg{width:100%;height:100%;overflow:visible}' +
+      '.weekly-axis-grid{stroke:#edf0f3;stroke-width:1}' +
+      '.weekly-line-area{fill:rgba(228,78,20,.12)}' +
+      '.weekly-line{fill:none;stroke:#db4a12;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}' +
+      '.weekly-line-chart circle{fill:#db4a12;stroke:#fff;stroke-width:1.5}' +
+      '.weekly-line-chart text{fill:#555f6d;font-size:10px;font-weight:800}' +
+      '.weekly-line-chart text.weekly-axis-label{fill:#8b95a1;font-size:9px;font-weight:700}' +
+      '</style></head><body><header><div class="header-actions"><button class="dominant-download" onclick="if(window.opener && window.opener.__dailyStableOpenWeeklyReceiptDominant){window.opener.__dailyStableOpenWeeklyReceiptDominant();}">접수 다발품목</button><button class="history-download" onclick="if(window.opener && window.opener.__dailyStableExportWeeklyReceipt){window.opener.__dailyStableExportWeeklyReceipt();}">이력 다운로드</button></div><button class="close" onclick="window.close()">×</button><h1>' + esc(lastWeeklyReceiptPopupTitle) + '</h1></header>' +
       '<div class="kpi-panel"><div class="kpi-grid">' +
         '<div class="kpi"><span>접수건수</span><strong>' + comma(total) + '</strong><em>건</em><small>선택 조건 기준</small><div class="cat-breakdown">' + catHtml + '</div></div>' +
         '<div class="kpi"><span>손실금액</span><strong>' + comma(loss) + '</strong><em>원</em><small>R열 합계 금액 기준</small></div>' +
         '<div class="kpi"><span>주요 접수 품목</span><strong class="purple">' + esc(main.key) + '</strong><em>' + comma(main.qty) + '건</em><div class="kpi-tags">' + tagsHtml + '</div></div>' +
       '</div></div>' +
+      '<div class="loss-chart-card"><h3>선택 기간 손실금액</h3>' + lossChartHtml + '</div>' +
       '<script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close();});<\/script>' +
       '</body></html>');
     popup.document.close();

@@ -3187,6 +3187,23 @@ function monthlyDefectBarChartMarkup(months) {
   </div>`;
 }
 
+function smoothLinePath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M${points[0].x},${points[0].y}`;
+  let d = `M${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? i : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
 function monthlyDefectLineChartMarkup(months, field, labelFormatter, ariaLabel, axisFormatter) {
   const width = 640, height = 220, padLeft = 56, padRight = 14, padTop = 26, padBottom = 30;
   const innerW = width - padLeft - padRight;
@@ -3199,8 +3216,8 @@ function monthlyDefectLineChartMarkup(months, field, labelFormatter, ariaLabel, 
     const y = padTop + innerH - (niceMax ? (value / niceMax) * innerH : 0);
     return { ...month, value, x, y };
   });
-  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = `${padLeft},${padTop + innerH} ${line} ${padLeft + innerW},${padTop + innerH}`;
+  const linePath = smoothLinePath(points);
+  const areaPath = points.length ? `${linePath} L${points[points.length - 1].x},${padTop + innerH} L${padLeft},${padTop + innerH} Z` : "";
   const axis = ticks.map((tick) => {
     const y = padTop + innerH - (tick / niceMax) * innerH;
     const label = axisFormatter ? axisFormatter(tick) : formatNumber(tick);
@@ -3210,8 +3227,8 @@ function monthlyDefectLineChartMarkup(months, field, labelFormatter, ariaLabel, 
   return `<div class="weekly-line-chart">
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(ariaLabel)}">
       ${axis}
-      <polygon class="weekly-line-area" points="${area}"></polygon>
-      <polyline class="weekly-line" points="${line}"></polyline>
+      ${areaPath ? `<path class="weekly-line-area" d="${areaPath}"></path>` : ""}
+      ${linePath ? `<path class="weekly-line" d="${linePath}"></path>` : ""}
       ${points.map((point) => `
         <g>
           <circle class="${point.week === monthlyDefectSelectedMonth ? "active" : ""}" cx="${point.x}" cy="${point.y}" r="4.5" onclick="selectMonthlyDefectMonth('${escapeJs(point.week)}')"></circle>
@@ -4650,8 +4667,8 @@ function weeklyMetricLineChartMarkup(weeks, field, labelFormatter, ariaLabel, ax
     return { ...week, value, x, y };
   });
   const points = allPoints.filter((point) => point.value > 0);
-  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = points.length ? `${points[0].x},${padTop + innerH} ${line} ${points[points.length - 1].x},${padTop + innerH}` : "";
+  const linePath = smoothLinePath(points);
+  const areaPath = points.length ? `${linePath} L${points[points.length - 1].x},${padTop + innerH} L${points[0].x},${padTop + innerH} Z` : "";
   const axis = ticks.map((tick) => {
     const y = padTop + innerH - (tick / niceMax) * innerH;
     const label = axisFormatter ? axisFormatter(tick) : formatNumber(tick);
@@ -4662,8 +4679,8 @@ function weeklyMetricLineChartMarkup(weeks, field, labelFormatter, ariaLabel, ax
   return `<div class="weekly-line-chart">
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(ariaLabel)}">
       ${axis}
-      ${area ? `<polygon class="weekly-line-area" points="${area}"></polygon>` : ""}
-      ${line ? `<polyline class="weekly-line" points="${line}"></polyline>` : ""}
+      ${areaPath ? `<path class="weekly-line-area" d="${areaPath}"></path>` : ""}
+      ${linePath ? `<path class="weekly-line" d="${linePath}"></path>` : ""}
       ${points.map((point) => `
         <g>
           <circle class="${point.week === weeklySelectedWeek ? "active" : ""}" cx="${point.x}" cy="${point.y}" r="4.5" onclick="selectWeeklyWeek('${escapeJs(point.week)}')"></circle>
