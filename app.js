@@ -738,14 +738,37 @@ function writeCachedWebAppJson(url, data) {
   try { sessionStorage.setItem(webAppJsonCacheKey(url), JSON.stringify({ data, savedAt: Date.now() })); } catch (_) {}
 }
 
+function webAppUrlWithParams(url, params) {
+  const u = new URL(url, window.location.href);
+  Object.keys(params).forEach((key) => u.searchParams.set(key, params[key]));
+  return u.toString();
+}
+
+async function fetchWebAppJson(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
+  const data = await res.json().catch(() => null);
+  if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
+  return data;
+}
+
 async function fetchExistingDataFromWebApp(url, year) {
   if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
   let data = readCachedWebAppJson(url);
   if (!data) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
-    data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
+    const monthList = await fetchWebAppJson(webAppUrlWithParams(url, { action: "months" }));
+    if (Array.isArray(monthList.months)) {
+      const months = {};
+      await Promise.all(monthList.months.map(async (monthLabel) => {
+        const monthData = await fetchWebAppJson(webAppUrlWithParams(url, { month: monthLabel }));
+        Object.assign(months, monthData.months || {});
+      }));
+      data = { ok: true, months };
+    } else {
+      // 아직 재배포 전인 구버전 앱스스크립트: "months" 액션을 모르므로
+      // 그냥 전체 데이터를 한 번에 돌려준다 (기존 방식 그대로 동작).
+      data = monthList;
+    }
     writeCachedWebAppJson(url, data);
   }
   const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
