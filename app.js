@@ -723,52 +723,40 @@ async function fetchPublishedCsvMonthlyDataSets(lines, label, year) {
 }
 
 function webAppJsonCacheKey(url) {
-  return `qualityClaimDashboard.webAppCache.v1:${url}`;
+  return `qualityClaimDashboard.webAppCache.v2:${url}`;
 }
+
+const WEBAPP_JSON_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6시간 - 앱스스크립트 자체가 느려서(콜드스타트 등) 매번 다시 부르지 않도록 길게 잡음
 
 function readCachedWebAppJson(url) {
   try {
-    const parsed = JSON.parse(sessionStorage.getItem(webAppJsonCacheKey(url)) || "null");
-    if (parsed && Date.now() - parsed.savedAt <= 30000) return parsed.data;
+    const parsed = JSON.parse(localStorage.getItem(webAppJsonCacheKey(url)) || "null");
+    if (parsed && Date.now() - parsed.savedAt <= WEBAPP_JSON_CACHE_TTL_MS) return parsed.data;
   } catch (_) {}
   return null;
 }
 
 function writeCachedWebAppJson(url, data) {
-  try { sessionStorage.setItem(webAppJsonCacheKey(url), JSON.stringify({ data, savedAt: Date.now() })); } catch (_) {}
+  try { localStorage.setItem(webAppJsonCacheKey(url), JSON.stringify({ data, savedAt: Date.now() })); } catch (_) {}
 }
 
-function webAppUrlWithParams(url, params) {
-  const u = new URL(url, window.location.href);
-  Object.keys(params).forEach((key) => u.searchParams.set(key, params[key]));
-  return u.toString();
-}
-
-async function fetchWebAppJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status}`);
-  const data = await res.json().catch(() => null);
-  if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
-  return data;
-}
-
-async function fetchExistingDataFromWebApp(url, year) {
+async function fetchExistingDataFromWebApp(url, year, forceRefresh) {
   if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
-  let data = readCachedWebAppJson(url);
+  let data = forceRefresh ? null : readCachedWebAppJson(url);
   if (!data) {
-    const monthList = await fetchWebAppJson(webAppUrlWithParams(url, { action: "months" }));
-    if (Array.isArray(monthList.months)) {
-      const months = {};
-      await Promise.all(monthList.months.map(async (monthLabel) => {
-        const monthData = await fetchWebAppJson(webAppUrlWithParams(url, { month: monthLabel }));
-        Object.assign(months, monthData.months || {});
-      }));
-      data = { ok: true, months };
-    } else {
-      // 아직 재배포 전인 구버전 앱스스크립트: "months" 액션을 모르므로
-      // 그냥 전체 데이터를 한 번에 돌려준다 (기존 방식 그대로 동작).
-      data = monthList;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    let res;
+    try {
+      res = await fetch(url, { cache: "no-store", signal: controller.signal });
+    } catch (err) {
+      throw new Error(err.name === "AbortError" ? "웹앱 응답 시간 초과 (60초) - URL이 올바른지 확인해 주세요." : err.message);
+    } finally {
+      clearTimeout(timer);
     }
+    if (!res.ok) throw new Error(`웹앱 응답 오류 ${res.status} - URL이 올바른지 확인해 주세요.`);
+    data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "웹앱 응답을 읽지 못했습니다.");
     writeCachedWebAppJson(url, data);
   }
   const monthLabels = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
@@ -807,7 +795,7 @@ async function loadExistingDataWebApp(year) {
   const groupKey = existingDataGroupKeyForYear(year);
   const groupTitle = `${year}년 마감자료`;
   try {
-    const dataSets = await fetchExistingDataFromWebApp(url, year);
+    const dataSets = await fetchExistingDataFromWebApp(url, year, true);
     state.uploads = state.uploads.filter((entry) => entry.groupKey !== groupKey);
     let entry = null;
     dataSets.forEach((dataSet) => {
@@ -3040,6 +3028,7 @@ function deadlinePriorityEntry(entries) {
 }
 
 function queueExistingDeadlineReload() {
+  if (restoringSavedState) return true;
   if (existingDeadlineAutoChecked || existingDeadlineAutoLoading) return existingDeadlineAutoLoading;
   const groups = savedLinkGroupsCache.filter((group) => group.kind === "cost" && group.sourceUrl);
   if (!groups.length) return false;
@@ -6302,9 +6291,23 @@ async function restoreSavedDashboardState() {
   try {
     revokeImages();
     state.uploads = [];
-    const restoreResults = await Promise.allSettled((payload.groups || []).map((group) => restoreSavedGroup(group)));
-    restoreResults.forEach((result, index) => {
-      if (result.status === "rejected") failedGroups.push(payload.groups[index]);
+    // 앱스스크립트 웹앱 기반 "마감자료"(cost)는 동시에 여러 개 호출하면 구글 쪽에서
+    // 서로 경합해 오히려 더 느려지는 경우가 있어, 이 그룹들만 순서대로(직렬로) 불러온다.
+    const groups = payload.groups || [];
+    const isSlowCostGroup = (group) => group.kind === "cost" && isAppsScriptWebAppUrl(group.sourceUrl);
+    const slowGroups = groups.filter(isSlowCostGroup);
+    const fastGroups = groups.filter((group) => !isSlowCostGroup(group));
+    const settle = (promise) => promise.then((value) => ({ status: "fulfilled", value }), (reason) => ({ status: "rejected", reason }));
+    const slowResults = [];
+    for (const group of slowGroups) {
+      slowResults.push(await settle(restoreSavedGroup(group)));
+    }
+    const fastResults = await Promise.allSettled(fastGroups.map((group) => restoreSavedGroup(group)));
+    const resultByGroup = new Map();
+    slowGroups.forEach((group, index) => resultByGroup.set(group, slowResults[index]));
+    fastGroups.forEach((group, index) => resultByGroup.set(group, fastResults[index]));
+    groups.forEach((group) => {
+      if (resultByGroup.get(group)?.status === "rejected") failedGroups.push(group);
     });
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
