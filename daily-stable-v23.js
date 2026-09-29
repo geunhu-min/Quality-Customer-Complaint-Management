@@ -679,7 +679,7 @@
   var IMAGE_CELL_MAX = 4;
   function previewSrc(img) {
     var base = img.url || img.dataUrl || "";
-    if (/lh3\.googleusercontent\.com\/d\//.test(base)) return base.replace(/=s\d+$/, "=s900");
+    if (/lh3\.googleusercontent\.com\/d\//.test(base)) return base.replace(/=s\d+$/, "=s0");
     return img.dataUrl || base;
   }
   function imageCellMarkup(images, attachKey, row) {
