@@ -1290,6 +1290,24 @@
       event.preventDefault();
       zoomLightbox(event.deltaY < 0 ? 1 : -1);
     }, { passive: false });
+    var mediaWrap = el.querySelector(".daily-lightbox-media-wrap");
+    var dragState = null;
+    mediaWrap.addEventListener("mousedown", function (event) {
+      if (lightboxZoom <= 1) return;
+      event.preventDefault();
+      dragState = { x: event.clientX, y: event.clientY, left: mediaWrap.scrollLeft, top: mediaWrap.scrollTop };
+      mediaWrap.classList.add("dragging");
+    });
+    document.addEventListener("mousemove", function (event) {
+      if (!dragState) return;
+      mediaWrap.scrollLeft = dragState.left - (event.clientX - dragState.x);
+      mediaWrap.scrollTop = dragState.top - (event.clientY - dragState.y);
+    });
+    document.addEventListener("mouseup", function () {
+      if (!dragState) return;
+      dragState = null;
+      mediaWrap.classList.remove("dragging");
+    });
     el.querySelector(".daily-lightbox-open-drive").addEventListener("click", function () {
       var item = lightboxGroup[lightboxIndex];
       if (!item || !item.driveViewUrl) return;
@@ -1377,6 +1395,8 @@
     if (media) media.style.transform = "scale(" + lightboxZoom + ")";
     var pct = el.querySelector(".daily-lightbox-zoom-pct");
     if (pct) pct.textContent = Math.round(lightboxZoom * 100) + "%";
+    var mediaWrap = el.querySelector(".daily-lightbox-media-wrap");
+    if (mediaWrap) mediaWrap.classList.toggle("zoomable", lightboxZoom > 1);
   }
   function renderLightbox() {
     var el = ensureAttachLightbox();

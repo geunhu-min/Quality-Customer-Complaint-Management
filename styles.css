@@ -2165,8 +2165,21 @@ main {
   height: 100%;
   overflow: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.daily-lightbox-media-wrap.zoomable {
+  cursor: grab;
+  user-select: none;
+}
+
+.daily-lightbox-media-wrap.zoomable.dragging {
+  cursor: grabbing;
+}
+
+.daily-lightbox-media {
+  -webkit-user-drag: none;
 }
 
 .daily-lightbox-media {
@@ -2175,8 +2188,9 @@ main {
   max-height: 78vh;
   border-radius: 10px;
   transition: transform 0.12s;
-  transform-origin: center center;
+  transform-origin: left center;
   flex: 0 0 auto;
+  margin: auto;
 }
 
 .daily-lightbox-embed {
