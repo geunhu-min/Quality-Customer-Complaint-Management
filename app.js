@@ -1806,7 +1806,7 @@ async function loadImages(files, imageNo = null, imageDate = "") {
   if (!files.length) return;
   const images = await Promise.all(files.map(async (file, index) => {
     const isVideo = file.type?.startsWith("video/");
-    const dataUrl = isVideo ? await fileToDataUrl(file) : await imageFileToDataUrl(file);
+    const dataUrl = isVideo ? await videoFileToDataUrl(file) : await imageFileToDataUrl(file);
     return {
       id: createImageId(),
       name: file.name,
@@ -1873,6 +1873,96 @@ function fileToDataUrl(file) {
     reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
+}
+
+const VIDEO_COMPRESS_SKIP_BYTES = 6 * 1024 * 1024; // 6MB 이하면 압축 없이 그대로 첨부
+const FFMPEG_JS_URL = "https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js";
+const FFMPEG_CORE_URL = "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js";
+let ffmpegInstance = null;
+let ffmpegLoadPromise = null;
+let ffmpegQueue = Promise.resolve();
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("압축 라이브러리를 불러오지 못했습니다."));
+    document.head.appendChild(script);
+  });
+}
+
+async function getFfmpeg() {
+  if (!window.FFmpeg) await loadScriptOnce(FFMPEG_JS_URL);
+  if (!ffmpegInstance) ffmpegInstance = window.FFmpeg.createFFmpeg({ log: false, corePath: FFMPEG_CORE_URL, mainName: "main" });
+  if (!ffmpegLoadPromise) ffmpegLoadPromise = ffmpegInstance.load();
+  await ffmpegLoadPromise;
+  return ffmpegInstance;
+}
+
+function showVideoCompressToast(text) {
+  let el = document.getElementById("videoCompressToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "videoCompressToast";
+    el.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:320px";
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  return el;
+}
+
+function hideVideoCompressToast() {
+  document.getElementById("videoCompressToast")?.remove();
+}
+
+async function compressVideoFile(file) {
+  const run = ffmpegQueue.then(async () => {
+    const ffmpeg = await getFfmpeg();
+    const { fetchFile } = window.FFmpeg;
+    const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || ".mp4";
+    const inputName = `in_${Date.now()}${ext}`;
+    const outputName = `out_${Date.now()}.mp4`;
+    ffmpeg.FS("writeFile", inputName, await fetchFile(file));
+    try {
+      await ffmpeg.run(
+        "-i", inputName,
+        "-vf", "scale='min(1280,iw)':-2",
+        "-c:v", "libx264",
+        "-crf", "30",
+        "-preset", "veryfast",
+        "-c:a", "aac",
+        "-b:a", "96k",
+        "-movflags", "+faststart",
+        outputName
+      );
+      const data = ffmpeg.FS("readFile", outputName);
+      return new Blob([data.buffer], { type: "video/mp4" });
+    } finally {
+      try { ffmpeg.FS("unlink", inputName); } catch (_) {}
+      try { ffmpeg.FS("unlink", outputName); } catch (_) {}
+    }
+  });
+  ffmpegQueue = run.catch(() => {});
+  return run;
+}
+
+async function videoFileToDataUrl(file) {
+  if (file.size <= VIDEO_COMPRESS_SKIP_BYTES) return fileToDataUrl(file);
+  showVideoCompressToast(`동영상 압축 중... (${file.name})`);
+  try {
+    const compressed = await compressVideoFile(file);
+    if (compressed && compressed.size > 0 && compressed.size < file.size * 0.9) {
+      return await fileToDataUrl(compressed);
+    }
+    return await fileToDataUrl(file);
+  } catch (err) {
+    console.error("동영상 압축 실패, 원본으로 첨부합니다:", err);
+    return await fileToDataUrl(file);
+  } finally {
+    hideVideoCompressToast();
+  }
 }
 
 function toggleFileCards() {

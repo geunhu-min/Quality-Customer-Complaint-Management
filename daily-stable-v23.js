@@ -1410,6 +1410,8 @@
         : '<img class="daily-lightbox-media" src="' + esc(item.src) + '">';
     var openBtn = el.querySelector(".daily-lightbox-open-drive");
     if (openBtn) openBtn.style.display = item.driveViewUrl ? "" : "none";
+    var downloadBtn = el.querySelector(".daily-lightbox-download");
+    if (downloadBtn) downloadBtn.style.display = (item.isVideo && item.driveViewUrl) ? "none" : "";
     el.querySelector(".daily-lightbox-name").textContent = item.name;
     el.querySelector(".daily-lightbox-meta").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
     el.querySelector(".daily-lightbox-counter").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
