@@ -6291,23 +6291,17 @@ async function restoreSavedDashboardState() {
   try {
     revokeImages();
     state.uploads = [];
-    // 앱스스크립트 웹앱 기반 "마감자료"(cost)는 동시에 여러 개 호출하면 구글 쪽에서
-    // 서로 경합해 오히려 더 느려지는 경우가 있어, 이 그룹들만 순서대로(직렬로) 불러온다.
     const groups = payload.groups || [];
+    // 앱스스크립트 웹앱 기반 "마감자료"(cost)는 구글 쪽 응답이 느리고 불안정할 때가 있어서,
+    // 이걸 기다리느라 접수내역/이미지 등 나머지 화면 표시까지 늦어지지 않도록
+    // 먼저 나머지만 불러와 화면을 그리고, 마감자료는 백그라운드로 이어서 불러온다.
     const isSlowCostGroup = (group) => group.kind === "cost" && isAppsScriptWebAppUrl(group.sourceUrl);
-    const slowGroups = groups.filter(isSlowCostGroup);
     const fastGroups = groups.filter((group) => !isSlowCostGroup(group));
-    const settle = (promise) => promise.then((value) => ({ status: "fulfilled", value }), (reason) => ({ status: "rejected", reason }));
-    const slowResults = [];
-    for (const group of slowGroups) {
-      slowResults.push(await settle(restoreSavedGroup(group)));
-    }
+    const slowGroups = groups.filter(isSlowCostGroup);
+
     const fastResults = await Promise.allSettled(fastGroups.map((group) => restoreSavedGroup(group)));
-    const resultByGroup = new Map();
-    slowGroups.forEach((group, index) => resultByGroup.set(group, slowResults[index]));
-    fastGroups.forEach((group, index) => resultByGroup.set(group, fastResults[index]));
-    groups.forEach((group) => {
-      if (resultByGroup.get(group)?.status === "rejected") failedGroups.push(group);
+    fastResults.forEach((result, index) => {
+      if (result.status === "rejected") failedGroups.push(fastGroups[index]);
     });
     restoreMonthlyStatusSnapshot();
     const dbImages = await loadImagesFromDb();
@@ -6317,6 +6311,24 @@ async function restoreSavedDashboardState() {
     const localImages = dbImages.length ? dbImages : (payload.images || []).filter((image) => !image.driveSourced);
     restoreSavedImages(localImages.concat(linkImages));
     activeUploadId = state.uploads.find((entry) => entry.label === payload.activeUploadLabel)?.id || state.uploads[0]?.id || "sample";
+
+    if (slowGroups.length) {
+      Promise.allSettled(slowGroups.map((group) => restoreSavedGroup(group))).then((slowResults) => {
+        slowResults.forEach((result, index) => {
+          if (result.status === "rejected") failedGroups.push(slowGroups[index]);
+        });
+        window.__lastRestoreHadFailures = failedGroups.length > 0;
+        restoringSavedState = false;
+        renderAll(failedGroups.length
+          ? "일부 저장 링크를 불러오지 못했습니다. 저장값은 유지됩니다."
+          : "마감자료를 불러왔습니다.");
+        saveDashboardState(true);
+        setSyncIndicator(window.__lastRestoreHadFailures ? "fail" : "done");
+      });
+    } else {
+      restoringSavedState = false;
+    }
+
     window.__lastRestoreHadFailures = failedGroups.length > 0;
     renderAll(failedGroups.length
       ? "일부 저장 링크를 불러오지 못했습니다. 저장값은 유지됩니다."
@@ -6326,9 +6338,8 @@ async function restoreSavedDashboardState() {
   } catch (err) {
     window.__lastRestoreHadFailures = true;
     alert(`저장된 링크 불러오기 실패: ${err.message}`);
-    return false;
-  } finally {
     restoringSavedState = false;
+    return false;
   }
 }
 function exportSeedSavedLinkGroups() {
