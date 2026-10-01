@@ -682,6 +682,23 @@
     if (/lh3\.googleusercontent\.com\/d\//.test(base)) return base.replace(/=s\d+$/, "=s0");
     return img.dataUrl || base;
   }
+  function driveEmbedAndDownloadUrls(img) {
+    // \uC608\uC804\uC5D0(embedUrl/downloadUrl \uCD94\uAC00 \uC804) \uC62C\uB838\uB358 \uB4DC\uB77C\uC774\uBE0C \uC601\uC0C1\uB3C4 \uC7AC\uC0DD/\uB2E4\uC6B4\uB85C\uB4DC\uAC00
+    // \uB418\uB3C4\uB85D, \uC800\uC7A5\uB41C \uAC12\uC774 \uC5C6\uC73C\uBA74 sourceLink\uC5D0\uC11C \uD30C\uC77C ID\uB97C \uBF51\uC544 \uADF8 \uC790\uB9AC\uC5D0\uC11C \uACC4\uC0B0\uD55C\uB2E4.
+    if (img.embedUrl || img.downloadUrl) return { embedUrl: img.embedUrl || "", downloadUrl: img.downloadUrl || "" };
+    if (img.mediaType !== "video") return { embedUrl: img.embedUrl || "", downloadUrl: "" };
+    // driveSourced 플래그 유무와 상관없이(시트 photoLink 경로는 이 플래그 자체가 없음),
+    // url/dataUrl/sourceLink 중 드라이브 파일 ID를 뽑을 수 있는 게 있으면 계산한다.
+    var driveFileIdFromShareUrl = window.driveFileIdFromShareUrl;
+    var driveId = driveFileIdFromShareUrl
+      ? (driveFileIdFromShareUrl(img.sourceLink || "") || driveFileIdFromShareUrl(img.url || "") || driveFileIdFromShareUrl(img.dataUrl || ""))
+      : "";
+    if (!driveId) return { embedUrl: img.embedUrl || "", downloadUrl: "" };
+    return {
+      embedUrl: "https://drive.google.com/file/d/" + driveId + "/preview",
+      downloadUrl: "https://drive.google.com/uc?export=download&id=" + driveId
+    };
+  }
   function imageCellMarkup(images, attachKey, row) {
     var shown = images.slice(0, IMAGE_CELL_MAX);
     var extra = images.length - shown.length;
@@ -689,12 +706,13 @@
       var full = esc(previewSrc(img));
       var isVideo = img.mediaType === "video";
       var hasPoster = !!(img.url || img.dataUrl);
+      var urls = driveEmbedAndDownloadUrls(img);
       var inner = isVideo
         ? (hasPoster
           ? '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy"><span class="detail-thumb-play">\u25B6</span>'
           : '<span class="detail-thumb-video">\uD83C\uDFA5</span>')
         : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
-      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(img.embedUrl || "") + '" data-source-link="' + esc(img.sourceLink || "") + '" data-sheet-receipt-no="' + esc(img.sheetReceiptNo || (row && row.receiptNo) || "") + '" data-sheet-seq="' + esc(img.sheetSeq || (row && row.seq) || "") + '" data-sheet-code="' + esc(img.sheetCode || (row && row.code) || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
+      return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(urls.embedUrl) + '" data-download-url="' + esc(urls.downloadUrl) + '" data-source-link="' + esc(img.sourceLink || "") + '" data-sheet-receipt-no="' + esc(img.sheetReceiptNo || (row && row.receiptNo) || "") + '" data-sheet-seq="' + esc(img.sheetSeq || (row && row.seq) || "") + '" data-sheet-code="' + esc(img.sheetCode || (row && row.code) || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
     html += '<button type="button" class="detail-thumb-attach" data-attach-key="' + esc(attachKey) + '" data-receipt-no="' + esc((row && row.receiptNo) || "") + '" data-seq="' + esc((row && row.seq) || "") + '" data-code="' + esc((row && row.code) || "") + '" title="\uC774\uBBF8\uC9C0/\uC601\uC0C1 \uB9C1\uD06C \uCD94\uAC00 (\uAD6C\uAE00 \uB4DC\uB77C\uC774\uBE0C \uACF5\uC720 \uB9C1\uD06C \uB4F1)">추가</button>';
@@ -1334,11 +1352,12 @@
   function lightboxDownloadName(item) {
     var name = item.name || "download";
     if (/\.[a-zA-Z0-9]{2,5}$/.test(name)) return name;
-    return name + (item.isVideo ? ".mp4" : ".jpg");
+    var ext = item.isVideo ? ".mp4" : ".jpg";
+    return name + ext;
   }
   function downloadLightboxItem(item) {
     var fileName = lightboxDownloadName(item);
-    fetch(item.src).then(function (res) {
+    fetch(item.downloadUrl || item.src).then(function (res) {
       if (!res.ok) throw new Error("fetch failed");
       return res.blob();
     }).then(function (blob) {
@@ -1351,8 +1370,9 @@
       document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     }).catch(function () {
-      var win = window.open(item.src, "_blank");
-      if (!win) window.location.href = item.src;
+      var fallbackUrl = item.downloadUrl || item.src;
+      var win = window.open(fallbackUrl, "_blank");
+      if (!win) window.location.href = fallbackUrl;
     });
   }
   function openAttachLightbox(wrap) {
@@ -1366,6 +1386,7 @@
         isVideo: w.getAttribute("data-media-type") === "video",
         driveViewUrl: w.getAttribute("data-drive-view") || "",
         embedUrl: w.getAttribute("data-embed-url") || "",
+        downloadUrl: w.getAttribute("data-download-url") || "",
         sourceLink: w.getAttribute("data-source-link") || "",
         sheetReceiptNo: w.getAttribute("data-sheet-receipt-no") || "",
         sheetSeq: w.getAttribute("data-sheet-seq") || "",
@@ -1411,7 +1432,7 @@
     var openBtn = el.querySelector(".daily-lightbox-open-drive");
     if (openBtn) openBtn.style.display = item.driveViewUrl ? "" : "none";
     var downloadBtn = el.querySelector(".daily-lightbox-download");
-    if (downloadBtn) downloadBtn.style.display = (item.isVideo && item.driveViewUrl) ? "none" : "";
+    if (downloadBtn) downloadBtn.style.display = (item.isVideo && item.driveViewUrl && !item.downloadUrl) ? "none" : "";
     el.querySelector(".daily-lightbox-name").textContent = item.name;
     el.querySelector(".daily-lightbox-meta").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
     el.querySelector(".daily-lightbox-counter").textContent = (lightboxIndex + 1) + " / " + lightboxGroup.length;
@@ -1435,7 +1456,71 @@
     activeAttachKey = key || null;
     if (zoneEl) zoneEl.classList.add("active-target");
   }
-  function attachLinkToKey(url, key, meta) {
+  function dataUrlToBase64(dataUrl) {
+    // 단순히 첫 콤마로 자르면 "video/webm;codecs=vp9,opus"처럼 mimeType 자체에
+    // 콤마가 들어있는 경우(webm 압축 결과) 엉뚱한 위치에서 잘려서 깨진다.
+    // ";base64," 표시를 정확히 찾아서 그 뒤부터만 잘라낸다.
+    var marker = ";base64,";
+    var idx = dataUrl.indexOf(marker);
+    return idx >= 0 ? dataUrl.slice(idx + marker.length) : dataUrl;
+  }
+  var UPLOAD_PAYLOAD_MAX_BYTES = 45 * 1024 * 1024; // 45MB - 압축 후(base64) 용량 기준, 앱스스크립트 전송 한도 여유있게 잡음
+  function uploadFileToSharedLink(file, meta) {
+    var videoFileToDataUrl = window.videoFileToDataUrl;
+    // imageFileToDataUrl은 로컬 임시저장용(1200px/82% 압축) 함수라 공유 업로드에 쓰면
+    // 화질이 또 떨어진다. 구글 드라이브에 올리는 사진은 원본 그대로(fileToDataUrl)를 쓴다.
+    var fileToDataUrl = window.fileToDataUrl;
+    var isVideoFile = (file.type || "").indexOf("video/") === 0;
+    var toDataUrl = isVideoFile ? videoFileToDataUrl : fileToDataUrl;
+    if (!toDataUrl) return Promise.reject(new Error("업로드 기능을 불러오지 못했습니다."));
+    var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
+    if (!sheetSyncUrl) return Promise.reject(new Error("업로드 주소가 설정되어 있지 않습니다."));
+    var updateProgress = window.updateMediaProgress;
+    var hideProgress = window.hideMediaProgress;
+    return toDataUrl(file).then(function (dataUrl) {
+      var base64 = dataUrlToBase64(dataUrl);
+      var approxBytes = Math.round(base64.length * 3 / 4);
+      if (approxBytes > UPLOAD_PAYLOAD_MAX_BYTES) {
+        throw new Error("압축 후에도 파일이 너무 큽니다(" + (approxBytes / 1024 / 1024).toFixed(0) + "MB). 구글 드라이브에 직접 올리신 뒤 링크를 붙여넣어 주세요.");
+      }
+      // 압축되면서 실제 형식이 바뀔 수 있어(원본 포맷 -> mp4 재인코딩), data URL에 적힌 실제 mimeType을 쓴다.
+      var actualMimeMatch = /^data:([^;,]+)/.exec(dataUrl);
+      var actualMimeType = actualMimeMatch ? actualMimeMatch[1] : (file.type || "");
+      var actualExt = actualMimeType === "video/mp4" ? ".mp4" : (file.name.match(/\.[a-z0-9]+$/i) || [""])[0];
+      var baseName = file.name.replace(/\.[a-z0-9]+$/i, "");
+      var actualFileName = actualExt ? baseName + actualExt : file.name;
+      var startedAt = Date.now();
+      var timer = null;
+      if (updateProgress) {
+        updateProgress("업로드 중", file.name, null, null, 0);
+        timer = setInterval(function () {
+          updateProgress("업로드 중", file.name, null, null, (Date.now() - startedAt) / 1000);
+        }, 1000);
+      }
+      return fetch(sheetSyncUrl, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "uploadFile",
+          receiptNo: (meta && meta.receiptNo) || "",
+          seq: (meta && meta.seq) || "",
+          code: (meta && meta.code) || "",
+          kind: (meta && meta.kind) || "",
+          fileName: actualFileName,
+          mimeType: actualMimeType,
+          base64: base64
+        })
+      }).then(function (res) { return res.json(); }).then(function (data) {
+        if (!data || !data.ok) throw new Error((data && data.error) || "업로드에 실패했습니다.");
+        if (!data.url) throw new Error("업로드는 됐지만 링크를 받지 못했습니다 — gas/daily-receipt-webapp.gs가 아직 재배포되지 않았을 수 있습니다.");
+        return data.url;
+      }).finally(function () {
+        if (timer) clearInterval(timer);
+      });
+    }).finally(function () {
+      if (hideProgress) hideProgress();
+    });
+  }
+  function attachLinkToKey(url, key, meta, isOwnUpload) {
     if (!url || !key) return;
     var addUploadEntry = window.addUploadEntry;
     var rebuildFromSelection = window.rebuildFromSelection;
@@ -1446,9 +1531,13 @@
     var driveViewUrlFromShareUrl = window.driveViewUrlFromShareUrl;
     var youtubeEmbedUrlFromShareUrl = window.youtubeEmbedUrlFromShareUrl;
     var youtubeVideoIdFromUrl = window.youtubeVideoIdFromUrl;
+    var driveFileIdFromShareUrl = window.driveFileIdFromShareUrl;
     if (!addUploadEntry || !rebuildFromSelection || !renderAll) return;
     var resolved = resolveImageLinkUrl ? resolveImageLinkUrl(url) : url;
     var isVideoKind = /영상|video/i.test((meta && meta.kind) || "") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(resolved) || !!(youtubeVideoIdFromUrl && youtubeVideoIdFromUrl(url));
+    // 우리가 직접 올린 영상은 드라이브 원본 파일이 그대로 있으므로, 썸네일이 아니라
+    // 드라이브 자체 미리보기(재생 가능)와 직접 다운로드 링크를 쓸 수 있다.
+    var driveId = (isOwnUpload && isVideoKind && driveFileIdFromShareUrl) ? driveFileIdFromShareUrl(url) : "";
     var image = {
       id: createImageId ? createImageId() : ("img_" + Date.now()),
       name: "ATTACH_" + key + "_" + Date.now() + "_0",
@@ -1460,7 +1549,8 @@
       imageDate: "",
       driveSourced: true,
       driveViewUrl: driveViewUrlFromShareUrl ? driveViewUrlFromShareUrl(url) : "",
-      embedUrl: youtubeEmbedUrlFromShareUrl ? youtubeEmbedUrlFromShareUrl(url) : "",
+      embedUrl: driveId ? ("https://drive.google.com/file/d/" + driveId + "/preview") : (youtubeEmbedUrlFromShareUrl ? youtubeEmbedUrlFromShareUrl(url) : ""),
+      downloadUrl: driveId ? ("https://drive.google.com/uc?export=download&id=" + driveId) : "",
       sourceLink: url,
       sheetReceiptNo: (meta && meta.receiptNo) || "",
       sheetSeq: (meta && meta.seq) || "",
@@ -1531,6 +1621,11 @@
     var seq = (reg && reg.row && reg.row.seq) || item.sheetSeq || "";
     var code = (reg && reg.row && reg.row.code) || item.sheetCode || "";
     var rawLink = (reg && reg.rawLink) || item.sourceLink || "";
+    // 시트 삭제 요청은 구글 앱스스크립트 응답이 느릴 수 있고(수초~수십초),
+    // 다음 자동 새로고침이 아직 삭제 전 시트 데이터를 캐시에서 읽어오면
+    // 지웠던 항목이 잠깐 다시 보일 수 있다. 이 브라우저에서는 응답을 기다리지 않고
+    // 바로 숨겨서 "삭제가 바로 안 되는 것처럼 보이는" 문제를 없앤다.
+    if (rawLink) hideSheetLinkForThisBrowser(rawLink);
     if (alsoDeleteFromSheet) {
       var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
       if (sheetSyncUrl && receiptNo && rawLink) {
@@ -1553,8 +1648,6 @@
         reg.row.photoLink = links.filter(Boolean).join(",");
         reg.row.photoKind = kinds.join(",");
       }
-    } else if (rawLink) {
-      hideSheetLinkForThisBrowser(rawLink);
     }
     if (item.id) deleteAttachedImage(item.id);
     scheduleStableRender();
@@ -1572,9 +1665,16 @@
           '<span>링크 (구글 드라이브 공유 링크 등)</span>' +
           '<input type="text" class="link-attach-input" placeholder="https://drive.google.com/...">' +
         '</label>' +
-        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;cursor:pointer">' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer">' +
           '<input type="checkbox" class="link-attach-video-check">' +
           '<span>영상입니다</span>' +
+        '</label>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin:0 0 18px;color:#9aa3b2;font-size:12px">' +
+          '<div style="flex:1;height:1px;background:#e5e7eb"></div>또는<div style="flex:1;height:1px;background:#e5e7eb"></div>' +
+        '</div>' +
+        '<label style="display:grid;gap:6px;margin-bottom:18px">' +
+          '<span>내 컴퓨터에서 파일 선택 (사진/동영상 — 구글 드라이브에 자동 업로드되어 다른 사람도 볼 수 있습니다)</span>' +
+          '<input type="file" class="link-attach-file" accept="image/*,video/*">' +
         '</label>' +
         '<div style="display:flex;justify-content:flex-end;gap:8px">' +
           '<button type="button" class="link-attach-cancel">취소</button>' +
@@ -1603,6 +1703,26 @@
     el.querySelector(".link-attach-confirm").addEventListener("click", confirm);
     el.querySelector(".link-attach-input").addEventListener("keydown", function (event) {
       if (event.key === "Enter") confirm();
+    });
+    el.querySelector(".link-attach-file").addEventListener("change", function (event) {
+      var file = event.target.files && event.target.files[0];
+      var zone = linkAttachZone;
+      event.target.value = "";
+      if (!file || !zone) return;
+      var isVideoFile = (file.type || "").indexOf("video/") === 0;
+      var meta = {
+        receiptNo: zone.getAttribute("data-receipt-no") || "",
+        seq: zone.getAttribute("data-seq") || "",
+        code: zone.getAttribute("data-code") || "",
+        kind: isVideoFile ? "영상" : "사진"
+      };
+      var attachKey = zone.getAttribute("data-attach-key");
+      close();
+      uploadFileToSharedLink(file, meta).then(function (url) {
+        attachLinkToKey(url, attachKey, meta, true);
+      }).catch(function (err) {
+        window.alert("파일을 업로드하지 못했습니다: " + (err && err.message ? err.message : err));
+      });
     });
     document.addEventListener("keydown", function (event) {
       if (el.classList.contains("open") && event.key === "Escape") close();

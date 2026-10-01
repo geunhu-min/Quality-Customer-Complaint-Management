@@ -377,7 +377,7 @@ const SEED_ATTACHED_IMAGES = [
 ];
 // "링크추가"로 넣은 사진/영상 링크를 접수내역 시트(S열/T열)에도 자동으로 써주는 앱스 스크립트 웹앱 주소.
 // 앱스 스크립트를 배포한 뒤 그 주소를 여기에 붙여넣으면, 이후로는 링크추가할 때마다 시트에도 자동 반영됩니다.
-var PHOTO_LINK_SHEET_SYNC_URL = "https://script.google.com/macros/s/AKfycbzRwzbe3xhti31H-TqNkMUH9Gf87rmpBPu6-gas_TDMUUqzPVvnV4urMOirr90lwSBZIg/exec";
+var PHOTO_LINK_SHEET_SYNC_URL = "https://script.google.com/macros/s/AKfycbz0l4t_M-xnbRshQ4U3EqbsRgCTHirvO9w2sjIDWMfM03E3HR75DpyGdHN5Q2zPsede/exec";
 const monthlyStatusSnapshotKey = "qualityClaimDashboard.monthlyStatusSnapshot.v1";
 const imageDbName = "qualityClaimDashboard.images.v1";
 const imageStoreName = "images";
@@ -1876,84 +1876,267 @@ function fileToDataUrl(file) {
 }
 
 const VIDEO_COMPRESS_SKIP_BYTES = 6 * 1024 * 1024; // 6MB 이하면 압축 없이 그대로 첨부
-const FFMPEG_JS_URL = "https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js";
-const FFMPEG_CORE_URL = "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js";
-let ffmpegInstance = null;
-let ffmpegLoadPromise = null;
-let ffmpegQueue = Promise.resolve();
+const VIDEO_COMPRESS_MAX_WIDTH = 1280;
+const VIDEO_COMPRESS_BITRATE = 1200000;
+
+function ensureMediaProgressOverlay() {
+  let el = document.getElementById("mediaProgressOverlay");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "mediaProgressOverlay";
+    el.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,23,42,.94);color:#fff;padding:18px 26px;border-radius:12px;font-size:14px;font-weight:700;z-index:10000;box-shadow:0 10px 30px rgba(0,0,0,.35);text-align:center;min-width:280px;max-width:420px;line-height:1.6";
+    el.innerHTML = `
+      <div class="media-progress-text"></div>
+      <div style="margin-top:10px;height:8px;border-radius:4px;background:rgba(255,255,255,.18);overflow:hidden">
+        <div class="media-progress-bar" style="height:100%;width:0%;background:#1f73e8;border-radius:4px;transition:width .2s linear"></div>
+      </div>`;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function updateMediaProgress(label, fileName, ratio, etaSeconds, elapsedSeconds) {
+  const el = ensureMediaProgressOverlay();
+  const pctText = ratio != null ? ` ${Math.max(0, Math.min(100, Math.round(ratio * 100)))}%` : "";
+  const etaText = etaSeconds != null && isFinite(etaSeconds) && etaSeconds >= 0 ? ` · 남은 시간 약 ${Math.round(etaSeconds)}초` : "";
+  const elapsedText = elapsedSeconds != null ? ` · 경과 ${Math.round(elapsedSeconds)}초` : "";
+  el.querySelector(".media-progress-text").innerHTML = `"${escapeHtml(fileName)}" ${escapeHtml(label)}...${pctText}${etaText}${elapsedText}`;
+  const bar = el.querySelector(".media-progress-bar");
+  if (ratio != null) {
+    if (bar.dataset.indeterminate) {
+      delete bar.dataset.indeterminate;
+      bar.getAnimations?.().forEach((a) => a.cancel());
+    }
+    bar.style.width = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+  } else if (!bar.dataset.indeterminate) {
+    // 비율을 모를 때는(fetch 업로드 등) 막대를 계속 왔다갔다하게 해서 "살아있음"을 보여준다.
+    bar.dataset.indeterminate = "1";
+    bar.style.width = "40%";
+    bar.animate(
+      [{ transform: "translateX(-100%)" }, { transform: "translateX(250%)" }],
+      { duration: 1100, iterations: Infinity }
+    );
+  }
+}
+
+function hideMediaProgress() {
+  document.getElementById("mediaProgressOverlay")?.remove();
+}
+
+function canCompressVideoInBrowser() {
+  return !!(
+    window.VideoEncoder &&
+    window.AudioEncoder &&
+    window.MediaStreamTrackProcessor &&
+    HTMLCanvasElement.prototype.captureStream
+  );
+}
 
 function loadScriptOnce(src) {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded) return resolve();
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("스크립트를 불러오지 못했습니다: " + src)));
+      return;
+    }
     const script = document.createElement("script");
     script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("압축 라이브러리를 불러오지 못했습니다."));
+    script.async = true;
+    script.onload = () => { script.dataset.loaded = "1"; resolve(); };
+    script.onerror = () => reject(new Error("스크립트를 불러오지 못했습니다: " + src));
     document.head.appendChild(script);
   });
 }
 
-async function getFfmpeg() {
-  if (!window.FFmpeg) await loadScriptOnce(FFMPEG_JS_URL);
-  if (!ffmpegInstance) ffmpegInstance = window.FFmpeg.createFFmpeg({ log: false, corePath: FFMPEG_CORE_URL, mainName: "main" });
-  if (!ffmpegLoadPromise) ffmpegLoadPromise = ffmpegInstance.load();
-  await ffmpegLoadPromise;
-  return ffmpegInstance;
-}
-
-function showVideoCompressToast(text) {
-  let el = document.getElementById("videoCompressToast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "videoCompressToast";
-    el.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:320px";
-    document.body.appendChild(el);
+const MP4_MUXER_SRC = "https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.min.js";
+let mp4MuxerLoadPromise = null;
+async function ensureMp4Muxer() {
+  if (!window.Mp4Muxer) {
+    mp4MuxerLoadPromise = mp4MuxerLoadPromise || loadScriptOnce(MP4_MUXER_SRC);
+    await mp4MuxerLoadPromise;
   }
-  el.textContent = text;
-  return el;
 }
 
-function hideVideoCompressToast() {
-  document.getElementById("videoCompressToast")?.remove();
-}
+// WebCodecs(VideoEncoder/AudioEncoder) + mp4-muxer로 표준 MP4(H.264+AAC, faststart)를 직접 만든다.
+// webm(MediaRecorder) 방식은 Windows 미디어 플레이어에서 탐색(구간 이동) 시 오류가 나는 경우가
+// 있었는데, 표준 MP4는 처음부터 제대로 된 길이/탐색 정보를 담고 있어 이런 문제가 없다.
+function compressVideoFile(file, onProgress) {
+  return ensureMp4Muxer().then(() => new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px";
+    document.body.appendChild(video);
 
-async function compressVideoFile(file) {
-  const run = ffmpegQueue.then(async () => {
-    const ffmpeg = await getFfmpeg();
-    const { fetchFile } = window.FFmpeg;
-    const ext = file.name.match(/\.[a-z0-9]+$/i)?.[0] || ".mp4";
-    const inputName = `in_${Date.now()}${ext}`;
-    const outputName = `out_${Date.now()}.mp4`;
-    ffmpeg.FS("writeFile", inputName, await fetchFile(file));
-    try {
-      await ffmpeg.run(
-        "-i", inputName,
-        "-vf", "scale='min(1280,iw)':-2",
-        "-c:v", "libx264",
-        "-crf", "30",
-        "-preset", "veryfast",
-        "-c:a", "aac",
-        "-b:a", "96k",
-        "-movflags", "+faststart",
-        outputName
-      );
-      const data = ffmpeg.FS("readFile", outputName);
-      return new Blob([data.buffer], { type: "video/mp4" });
-    } finally {
-      try { ffmpeg.FS("unlink", inputName); } catch (_) {}
-      try { ffmpeg.FS("unlink", outputName); } catch (_) {}
-    }
-  });
-  ffmpegQueue = run.catch(() => {});
-  return run;
+    const cleanup = () => {
+      video.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    video.addEventListener("error", () => {
+      cleanup();
+      reject(new Error("동영상을 읽지 못했습니다."));
+    });
+
+    video.addEventListener("loadedmetadata", () => {
+      const srcW = video.videoWidth || VIDEO_COMPRESS_MAX_WIDTH;
+      const srcH = video.videoHeight || VIDEO_COMPRESS_MAX_WIDTH;
+      const targetW = Math.min(VIDEO_COMPRESS_MAX_WIDTH, srcW);
+      const scale = targetW / srcW;
+      const targetH = Math.max(2, Math.round((srcH * scale) / 2) * 2);
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      const videoStream = canvas.captureStream(30);
+      const videoTrack = videoStream.getVideoTracks()[0];
+
+      let audioTrack = null;
+      let audioSettings = null;
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(video);
+        const dest = audioCtx.createMediaStreamDestination();
+        source.connect(dest);
+        audioTrack = dest.stream.getAudioTracks()[0] || null;
+        if (audioTrack) audioSettings = audioTrack.getSettings();
+      } catch (_) {
+        // 오디오 캡처 실패해도 영상만으로 계속 진행
+      }
+
+      const target = new Mp4Muxer.ArrayBufferTarget();
+      const muxerConfig = {
+        target,
+        video: { codec: "avc", width: targetW, height: targetH },
+        fastStart: "in-memory",
+        firstTimestampBehavior: "offset"
+      };
+      const audioSampleRate = (audioSettings && audioSettings.sampleRate) || 48000;
+      const audioChannels = (audioSettings && audioSettings.channelCount) || 2;
+      if (audioTrack) muxerConfig.audio = { codec: "aac", numberOfChannels: audioChannels, sampleRate: audioSampleRate };
+      const muxer = new Mp4Muxer.Muxer(muxerConfig);
+
+      let videoDone = false;
+      let audioDone = !audioTrack;
+      let settled = false;
+      const finishIfDone = () => {
+        if (settled || !videoDone || !audioDone) return;
+        settled = true;
+        cleanup();
+        try {
+          muxer.finalize();
+          resolve(new Blob([target.buffer], { type: "video/mp4" }));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      const fail = (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try { videoEncoder.close(); } catch (_) {}
+        try { if (audioEncoder) audioEncoder.close(); } catch (_) {}
+        reject(err instanceof Error ? err : new Error(String(err)));
+      };
+
+      const videoEncoder = new VideoEncoder({
+        output: (chunk, meta) => { if (!settled) muxer.addVideoChunk(chunk, meta); },
+        error: fail
+      });
+      videoEncoder.configure({
+        codec: "avc1.640028",
+        width: targetW,
+        height: targetH,
+        bitrate: VIDEO_COMPRESS_BITRATE,
+        framerate: 30
+      });
+
+      let audioEncoder = null;
+      if (audioTrack) {
+        audioEncoder = new AudioEncoder({
+          output: (chunk, meta) => { if (!settled) muxer.addAudioChunk(chunk, meta); },
+          error: fail
+        });
+        audioEncoder.configure({
+          codec: "mp4a.40.2",
+          numberOfChannels: audioChannels,
+          sampleRate: audioSampleRate,
+          bitrate: 128000
+        });
+      }
+
+      const videoReader = new MediaStreamTrackProcessor({ track: videoTrack }).readable.getReader();
+      let frameCount = 0;
+      (function readVideoFrame() {
+        videoReader.read().then(({ done, value }) => {
+          if (done) {
+            videoDone = true;
+            videoEncoder.flush().then(finishIfDone).catch(fail);
+            return;
+          }
+          frameCount++;
+          videoEncoder.encode(value, { keyFrame: frameCount % 60 === 1 });
+          value.close();
+          readVideoFrame();
+        }).catch(fail);
+      })();
+
+      if (audioTrack) {
+        const audioReader = new MediaStreamTrackProcessor({ track: audioTrack }).readable.getReader();
+        (function readAudioFrame() {
+          audioReader.read().then(({ done, value }) => {
+            if (done) {
+              audioDone = true;
+              audioEncoder.flush().then(finishIfDone).catch(fail);
+              return;
+            }
+            audioEncoder.encode(value);
+            value.close();
+            readAudioFrame();
+          }).catch(fail);
+        })();
+      }
+
+      let rafId = null;
+      const drawLoop = () => {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, targetW, targetH);
+        if (onProgress && video.duration) onProgress(Math.max(0, Math.min(1, video.currentTime / video.duration)));
+        rafId = requestAnimationFrame(drawLoop);
+      };
+
+      video.addEventListener("play", () => drawLoop());
+      video.addEventListener("ended", () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        if (onProgress) onProgress(1);
+        // 트랙을 멈추면 MediaStreamTrackProcessor의 readable이 done:true로 끝난다.
+        setTimeout(() => {
+          videoTrack.stop();
+          if (audioTrack) audioTrack.stop();
+        }, 100);
+      });
+
+      video.play().catch((err) => { fail(err); });
+    });
+  }));
 }
 
 async function videoFileToDataUrl(file) {
   if (file.size <= VIDEO_COMPRESS_SKIP_BYTES) return fileToDataUrl(file);
-  showVideoCompressToast(`동영상 압축 중... (${file.name})`);
+  if (!canCompressVideoInBrowser()) return fileToDataUrl(file);
+  const startedAt = Date.now();
+  updateMediaProgress("압축 중", file.name, 0, null, 0);
   try {
-    const compressed = await compressVideoFile(file);
-    if (compressed && compressed.size > 0 && compressed.size < file.size * 0.9) {
+    const compressed = await compressVideoFile(file, (ratio) => {
+      const elapsedSec = (Date.now() - startedAt) / 1000;
+      const eta = ratio > 0.02 ? (elapsedSec / ratio) * (1 - ratio) : null;
+      updateMediaProgress("압축 중", file.name, ratio, eta, elapsedSec);
+    });
+    if (compressed && compressed.size > 0 && compressed.size < file.size * 0.95) {
       return await fileToDataUrl(compressed);
     }
     return await fileToDataUrl(file);
@@ -1961,7 +2144,7 @@ async function videoFileToDataUrl(file) {
     console.error("동영상 압축 실패, 원본으로 첨부합니다:", err);
     return await fileToDataUrl(file);
   } finally {
-    hideVideoCompressToast();
+    hideMediaProgress();
   }
 }
 
