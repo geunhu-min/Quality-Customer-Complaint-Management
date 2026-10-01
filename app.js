@@ -726,7 +726,7 @@ function webAppJsonCacheKey(url) {
   return `qualityClaimDashboard.webAppCache.v2:${url}`;
 }
 
-const WEBAPP_JSON_CACHE_TTL_MS = 30 * 60 * 1000; // 30분 - 앱스스크립트 자체가 느려서(콜드스타트 등) 매번 다시 부르지 않으면서도 시트 수정 반영 지연을 줄임
+const WEBAPP_JSON_CACHE_TTL_MS = 30 * 1000; // 30초 - 클레임누적현황(iframe)과 동일하게 맞춤
 
 function readCachedWebAppJson(url) {
   try {
