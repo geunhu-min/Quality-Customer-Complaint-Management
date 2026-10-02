@@ -290,6 +290,28 @@ main {
   cursor: pointer;
 }
 
+.link-attach-file {
+  font-size: 15px;
+}
+
+.link-attach-file::file-selector-button,
+.link-attach-file::-webkit-file-upload-button {
+  min-height: 48px;
+  padding: 12px 24px;
+  margin-right: 12px;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.link-attach-file::file-selector-button:hover,
+.link-attach-file::-webkit-file-upload-button:hover {
+  background: #f1f5f9;
+}
+
 #dailyRemoveLinkModal {
   z-index: 1001;
 }
