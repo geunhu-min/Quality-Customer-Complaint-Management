@@ -160,6 +160,18 @@
         a.code.localeCompare(b.code, "ko");
     });
   }
+  // 2026-10-01부터(이번달부터) 네이버 달력 기준 공휴일은 접수일 컬럼에서 제외한다.
+  // 그 이전(과거) 달은 이미 표시된 그대로 유지한다. 매년 공휴일 날짜가 바뀌므로
+  // (설날/추석 등 음력 공휴일 포함) 다음 해로 넘어가면 이 목록도 갱신이 필요하다.
+  var HOLIDAY_SKIP_FROM_KEY = "2026-10-01";
+  var KR_HOLIDAYS = [
+    "2026-10-05", // 개천절(10/3, 토) 대체공휴일
+    "2026-10-09", // 한글날
+    "2026-12-25"  // 크리스마스
+  ];
+  function isSkippedHoliday(dKey) {
+    return dKey >= HOLIDAY_SKIP_FROM_KEY && KR_HOLIDAYS.indexOf(dKey) >= 0;
+  }
   function monday(d) {
     var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     var day = x.getDay() || 7;
@@ -173,7 +185,7 @@
     for (var day = 1; day <= end; day++) {
       var d = new Date(year, month - 1, day);
       var dow = d.getDay();
-      if (dow === 0 || dow === 6) continue;
+      if (dow === 0 || dow === 6 || isSkippedHoliday(dateKey(d))) continue;
       if (!cur.length || monday(cur[0]).getTime() === monday(d).getTime()) cur.push(d);
       else { groups.push(cur); cur = [d]; }
     }
