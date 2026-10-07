@@ -653,6 +653,24 @@
   function normalizeMatchKey(v) {
     return txt(v).replace(/[^0-9A-Za-z가-힣]/g, "").toUpperCase();
   }
+  // S열(링크)/T열(종류)을 콤마로 각각 split하면, 중간에 빈 링크가 하나라도
+  // 끼어있을 때(예전 삭제/동시 업로드 등으로 생김) links만 filter(Boolean)로
+  // 빈 칸을 빼면서 두 배열의 인덱스가 서로 어긋나 버린다 — 그러면 사진 하나가
+  // 엉뚱한 kind(예: 영상)를 받아서 사진 위에 재생 아이콘이 겹쳐 보이는 등
+  // "이상한 모양"으로 보이는 원인이 된다. 원래 위치 기준으로 짝을 맞춘 뒤
+  // 빈 링크만 제거해서 항상 같은 길이로 맞춰 돌려준다.
+  function parseLinksAndKinds_(linkStr, kindStr) {
+    var rawLinks = String(linkStr || "").split(",").map(function (v) { return v.trim(); });
+    var rawKinds = String(kindStr || "").split(",").map(function (v) { return v.trim(); });
+    var links = [];
+    var kinds = [];
+    rawLinks.forEach(function (link, i) {
+      if (!link) return;
+      links.push(link);
+      kinds.push(rawKinds[i] || "");
+    });
+    return { links: links, kinds: kinds };
+  }
   function defectDescMarkup(r, key) {
     var lines = esc(r.defect).split("\n");
     return lines.map(function (line) {
@@ -746,8 +764,9 @@
         var embedFn = window.driveViewUrlFromShareUrl;
         var iframeEmbedFn = window.youtubeEmbedUrlFromShareUrl;
         var youtubeIdFn = window.youtubeVideoIdFromUrl;
-        var links = r.photoLink.split(",").map(function (v) { return v.trim(); }).filter(Boolean);
-        var kinds = (r.photoKind || "").split(",").map(function (v) { return v.trim(); });
+        var parsedLinkKinds = parseLinksAndKinds_(r.photoLink, r.photoKind);
+        var links = parsedLinkKinds.links;
+        var kinds = parsedLinkKinds.kinds;
         var sheetImages = links.map(function (link, linkIndex) {
           var resolvedPhoto = resolveFn ? resolveFn(link) : link;
           var kind = kinds[linkIndex] || "";
@@ -1653,11 +1672,12 @@
         });
       }
       if (reg && reg.row) {
-        var links = String(reg.row.photoLink || "").split(",").map(function (v) { return v.trim(); });
-        var kinds = String(reg.row.photoKind || "").split(",").map(function (v) { return v.trim(); });
+        var parsedForDelete = parseLinksAndKinds_(reg.row.photoLink, reg.row.photoKind);
+        var links = parsedForDelete.links;
+        var kinds = parsedForDelete.kinds;
         links.splice(reg.linkIndex, 1);
         kinds.splice(reg.linkIndex, 1);
-        reg.row.photoLink = links.filter(Boolean).join(",");
+        reg.row.photoLink = links.join(",");
         reg.row.photoKind = kinds.join(",");
       }
     }
