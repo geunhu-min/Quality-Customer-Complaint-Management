@@ -729,6 +729,51 @@
       downloadUrl: "https://drive.google.com/uc?export=download&id=" + driveId
     };
   }
+  // 표 하나에 사진이 수십 장씩 있으면 한꺼번에 다 요청해서 구글 드라이브
+  // 쪽 요청 제한(429)에 걸리기 쉽다. 화면에 보이는 것부터(IntersectionObserver)
+  // 최대 THUMB_LOAD_MAX_CONCURRENCY장씩만 동시에 불러오도록 줄을 세운다.
+  var THUMB_LOAD_MAX_CONCURRENCY = 4;
+  var thumbLoadQueue = [];
+  var thumbLoadActive = 0;
+  var thumbLoadObserver = null;
+  function pumpThumbLoadQueue() {
+    while (thumbLoadActive < THUMB_LOAD_MAX_CONCURRENCY && thumbLoadQueue.length) {
+      var img = thumbLoadQueue.shift();
+      var src = img.getAttribute("data-lazy-src");
+      if (!src || img.getAttribute("src")) continue;
+      thumbLoadActive++;
+      var done = function () {
+        thumbLoadActive--;
+        pumpThumbLoadQueue();
+      };
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+      img.src = src;
+    }
+  }
+  function ensureThumbLoadObserver() {
+    if (thumbLoadObserver) return thumbLoadObserver;
+    thumbLoadObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        thumbLoadObserver.unobserve(entry.target);
+        thumbLoadQueue.push(entry.target);
+        pumpThumbLoadQueue();
+      });
+    }, { rootMargin: "300px" });
+    return thumbLoadObserver;
+  }
+  function initLazyThumbs(root) {
+    if (!root) return;
+    var imgs = root.querySelectorAll("img.detail-thumb[data-lazy-src]");
+    if (typeof IntersectionObserver === "undefined") {
+      // 구형 브라우저 대비 — 동시 요청 제한 없이 그냥 다 불러온다(기존 동작).
+      for (var j = 0; j < imgs.length; j++) imgs[j].src = imgs[j].getAttribute("data-lazy-src");
+      return;
+    }
+    var observer = ensureThumbLoadObserver();
+    for (var i = 0; i < imgs.length; i++) observer.observe(imgs[i]);
+  }
   function imageCellMarkup(images, attachKey, row) {
     var shown = images.slice(0, IMAGE_CELL_MAX);
     var extra = images.length - shown.length;
@@ -739,9 +784,9 @@
       var urls = driveEmbedAndDownloadUrls(img);
       var inner = isVideo
         ? (hasPoster
-          ? '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy"><span class="detail-thumb-play">\u25B6</span>'
+          ? '<img data-lazy-src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb"><span class="detail-thumb-play">\u25B6</span>'
           : '<span class="detail-thumb-video">\uD83C\uDFA5</span>')
-        : '<img src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb" loading="lazy">';
+        : '<img data-lazy-src="' + esc(img.url || img.dataUrl || "") + '" class="detail-thumb">';
       return '<span class="detail-thumb-wrap" data-preview-src="' + full + '" data-media-type="' + (isVideo ? "video" : "image") + '" data-image-name="' + esc(img.name) + '" data-image-id="' + esc(img.id || "") + '" data-drive-view="' + esc(img.driveViewUrl || "") + '" data-embed-url="' + esc(urls.embedUrl) + '" data-download-url="' + esc(urls.downloadUrl) + '" data-source-link="' + esc(img.sourceLink || "") + '" data-sheet-receipt-no="' + esc(img.sheetReceiptNo || (row && row.receiptNo) || "") + '" data-sheet-seq="' + esc(img.sheetSeq || (row && row.seq) || "") + '" data-sheet-code="' + esc(img.sheetCode || (row && row.code) || "") + '" title="' + esc(img.name) + '">' + inner + '</span>';
     }).join("");
     if (extra > 0) html += '<span class="detail-thumb-more">+' + extra + '</span>';
@@ -795,6 +840,7 @@
     if (html !== lastDetailHtml) {
       lastDetailHtml = html;
       table.innerHTML = html;
+      initLazyThumbs(table);
     }
   }
   function formatWeekRangeLabel(startKey, endKey) {
@@ -889,6 +935,7 @@
     if (html !== lastWeeklyReceiptHtml) {
       lastWeeklyReceiptHtml = html;
       table.innerHTML = html;
+      initLazyThumbs(table);
     }
     table.ondblclick = openWeeklyReceiptTypePopup;
   }
