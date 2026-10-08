@@ -1165,7 +1165,7 @@ async function fetchGoogleRawWorkbookDataSet(url, label) {
   if (!window.XLSX) throw new Error("SheetJS 라이브러리가 필요합니다.");
   const info = googleSheetInfo(url);
   if (!info) throw new Error("Google Sheets 링크가 아닙니다.");
-  const workbookFile = await fetchGoogleWorkbookBuffer(url, info.id);
+  const workbookFile = await fetchGoogleWorkbookBufferCached(url, info.id);
   const workbook = XLSX.read(new Uint8Array(workbookFile.buffer), { type: "array" });
   const documentTitle = workbookFile.title || workbook.Props?.Title || "";
   const rows = workbook.SheetNames.flatMap((sheetName) =>
@@ -1267,6 +1267,27 @@ async function fetchGoogleWorkbookBuffer(url, sheetId) {
     title: filenameFromContentDisposition(response.headers.get("Content-Disposition"))
   };
 }
+
+// app.js와 daily-stable-v23.js가 페이지를 열 때 거의 동시에 같은 구글 시트
+// (접수내역 누적데이터)를 각자 따로 fetch하던 문제가 있었다(실제 구글
+// 서버까지 두 번 왕복 + 다운로드 두 번). 같은 url이면 진행 중인 fetch를
+// 그대로 공유하고, 막 끝난 결과도 잠깐 캐시해서 재사용하도록
+// window에 노출해둔다 — 두 스크립트가 서로의 내부 함수를 몰라도 이
+// 전역 캐시 하나만으로 중복 요청을 걸러낸다.
+const GOOGLE_WORKBOOK_BUFFER_CACHE_TTL_MS = 30 * 1000;
+window.__googleWorkbookBufferCache = window.__googleWorkbookBufferCache || new Map();
+function fetchGoogleWorkbookBufferCached(url, sheetId) {
+  const cache = window.__googleWorkbookBufferCache;
+  const hit = cache.get(url);
+  if (hit && (Date.now() - hit.ts) < GOOGLE_WORKBOOK_BUFFER_CACHE_TTL_MS) return hit.promise;
+  const promise = fetchGoogleWorkbookBuffer(url, sheetId).catch((err) => {
+    cache.delete(url); // 실패하면 캐시에 남겨두지 않아 바로 재시도할 수 있게 한다
+    throw err;
+  });
+  cache.set(url, { promise, ts: Date.now() });
+  return promise;
+}
+window.fetchGoogleWorkbookBufferCached = fetchGoogleWorkbookBufferCached;
 
 function filenameFromContentDisposition(value) {
   const text = String(value || "");

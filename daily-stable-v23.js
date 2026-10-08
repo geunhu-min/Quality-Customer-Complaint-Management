@@ -1134,6 +1134,14 @@
         if (!csvRes.ok) throw new Error("csv " + csvRes.status);
         var csvText = await csvRes.text();
         wb = XLSX.read(csvText, { type: "string", cellDates: true });
+      } else if (window.fetchGoogleWorkbookBufferCached) {
+        // app.js가 이미 같은 url로 구글 시트를 불러오는 중이면 그 fetch를
+        // 그대로 공유해서(진행 중인 요청 재사용 + 30초 캐시), 페이지를 열 때
+        // 같은 "접수내역(누적데이터)" 스프레드시트를 구글에 두 번 왕복해서
+        // 받아오던 중복을 없앤다.
+        var sheetIdMatch = sourceUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        var workbookFile = await window.fetchGoogleWorkbookBufferCached(sourceUrl, sheetIdMatch ? sheetIdMatch[1] : "");
+        wb = XLSX.read(new Uint8Array(workbookFile.buffer), { type: "array", cellDates: true });
       } else {
         var wbRes = await fetch("/api/google-workbook?url=" + encodeURIComponent(sourceUrl), { cache: "no-store" });
         if (!wbRes.ok) throw new Error("workbook " + wbRes.status);
