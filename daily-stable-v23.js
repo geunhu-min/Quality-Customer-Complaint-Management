@@ -1677,6 +1677,13 @@
     rebuildFromSelection();
     renderAll();
     if (saveDashboardState) saveDashboardState();
+    // 파일을 직접 올린 경우(isOwnUpload)는 업로드 자체가 이미 서버에서
+    // action="uploadFile"로 행을 찾아 S/T열까지 다 써준 뒤 그 링크를
+    // 돌려준 것이다. 그런데 여기서 아래 시트 연동 fetch를 또 보내면
+    // 같은 행 찾기(TextFinder)+S/T열 읽기/쓰기를 통째로 한 번 더
+    // 반복하게 되어, 파일 업로드만 유독 느려지는 원인이 되고 있었다.
+    // 링크를 "붙여넣기"한 경우에만(isOwnUpload가 없을 때) 이 연동이 필요하다.
+    if (isOwnUpload) return;
     var sheetSyncUrl = window.PHOTO_LINK_SHEET_SYNC_URL;
     if (!sheetSyncUrl) return;
     if (!meta || !meta.receiptNo) {
