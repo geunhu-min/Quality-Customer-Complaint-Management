@@ -608,28 +608,41 @@
     prevGroups.forEach(function (g) { h2 += '<th rowspan="2">' + g.label + '</th>'; });
     h2 += '<th colspan="' + days.length + '">' + s.week.label + '</th><th rowspan="2">\uD569\uACC4</th></tr>';
     var h3 = '<tr>' + days.map(function (d) { var p = d.split("-"); return '<th>' + (+p[1]) + '/' + (+p[2]) + '</th>'; }).join("") + '</tr>';
+    // \uB9E8 \uC544\uB798 "\uACC4"(\uD569\uACC4) \uC904\uC740 \uAC01 \uBD84\uB958(\uC2DC\uACF5\uBBF8\uACB0/\uACE0\uAC1D\uBD88\uB9CC/\uAC10\uC131)\uBCC4\uB85C \uC774\uBBF8 \uAD6C\uD55C
+    // \uC22B\uC790\uB97C \uB354\uD558\uAE30\uB9CC \uD558\uBA74 \uB418\uB294\uB370, \uC608\uC804\uC5D0\uB294 monthCount/groupCount/dayCount\uB97C
+    // \uBD84\uB958\uBCC4 \uC904\uC5D0\uC11C \uD55C \uBC88, \uD569\uACC4 \uC904\uC5D0\uC11C \uB610 \uD55C \uBC88\uC529 \uCC98\uC74C\uBD80\uD130 \uB2E4\uC2DC \uACC4\uC0B0\uD558\uACE0
+    // \uC788\uC5C8\uB2E4. \uBD84\uB958\uBCC4\uB85C \uD55C \uBC88 \uAD6C\uD55C \uAC12\uC744 \uCE90\uC2DC\uD574\uB480\uB2E4\uAC00 \uD569\uACC4 \uC904\uC5D0\uC11C \uC7AC\uC0AC\uC6A9\uD55C\uB2E4
+    // (\uAC19\uC740 byCat \uD568\uC218\uB85C \uB611\uAC19\uC774 \uACC4\uC0B0\uD558\uBBC0\uB85C \uACB0\uACFC\uB294 \uC804\uACFC \uB3D9\uC77C, \uACC4\uC0B0 \uD69F\uC218\uB9CC \uC808\uBC18).
+    var catCache = {};
+    function cached(cat, key, fn) {
+      var bucket = catCache[cat] || (catCache[cat] = {});
+      if (!(key in bucket)) bucket[key] = fn();
+      return bucket[key];
+    }
+    function total(key, fn) { return cats.reduce(function (sum, cat) { return sum + cached(cat, key, function () { return fn(cat); }); }, 0); }
     function row(cat) {
       var dTarget = cat === T.complaint ? 3 : 0;
       var mTarget = cat === T.complaint ? 50 : 0;
       var yTarget = cat === T.complaint ? 600 : 0;
-      var html = '<tr class="category-row"><th>' + cat + '</th><td>' + comma(prevTotal(cat)) + '</td><td>' + comma(Math.round(prevTotal(cat) / 12)) + '</td>';
-      preMonths.forEach(function (m) { html += '<td>' + chtml(monthCount(cat, s.year, m)) + '</td>'; });
-      prevGroups.forEach(function (g) { html += '<td>' + chtml(groupCount(cat, g)) + '</td>'; });
-      days.forEach(function (d) { html += '<td>' + chtml(dayCount(cat, d), dTarget, d === todayKey) + '</td>'; });
-      html += '<td>' + chtml(selectedMonthTotal(cat), mTarget) + '</td>';
+      var prev = cached(cat, "prevTotal", function () { return prevTotal(cat); });
+      var html = '<tr class="category-row"><th>' + cat + '</th><td>' + comma(prev) + '</td><td>' + comma(Math.round(prev / 12)) + '</td>';
+      preMonths.forEach(function (m) { html += '<td>' + chtml(cached(cat, "preMonth" + m, function () { return monthCount(cat, s.year, m); })) + '</td>'; });
+      prevGroups.forEach(function (g, gi) { html += '<td>' + chtml(cached(cat, "prevGroup" + gi, function () { return groupCount(cat, g); })) + '</td>'; });
+      days.forEach(function (d) { html += '<td>' + chtml(cached(cat, "day" + d, function () { return dayCount(cat, d); }), dTarget, d === todayKey) + '</td>'; });
+      html += '<td>' + chtml(cached(cat, "selectedMonthTotal", function () { return selectedMonthTotal(cat); }), mTarget) + '</td>';
       postMonths.forEach(function () { html += '<td>' + chtml(0, mTarget) + '</td>'; });
-      html += '<td>' + chtml(yearTotal(cat), yTarget) + '</td><td>' + chtml(Math.round(yearTotal(cat) / Math.max(1, s.month)), mTarget) + '</td></tr>';
+      var yTot = cached(cat, "yearTotal", function () { return yearTotal(cat); });
+      html += '<td>' + chtml(yTot, yTarget) + '</td><td>' + chtml(Math.round(yTot / Math.max(1, s.month)), mTarget) + '</td></tr>';
       return html;
     }
-    function total(fn) { return cats.reduce(function (sum, cat) { return sum + fn(cat); }, 0); }
     var body = cats.map(row).join("");
-    var totalRow = '<tr class="total-row"><th>\uACC4</th><td>' + comma(total(prevTotal)) + '</td><td>' + comma(Math.round(total(prevTotal) / 12)) + '</td>';
-    preMonths.forEach(function (m) { totalRow += '<td>' + comma(total(function (cat) { return monthCount(cat, s.year, m); })) + '</td>'; });
-    prevGroups.forEach(function (g) { totalRow += '<td>' + comma(total(function (cat) { return groupCount(cat, g); })) + '</td>'; });
-    days.forEach(function (d) { totalRow += '<td>' + chtml(total(function (cat) { return dayCount(cat, d); }), 3, d === todayKey) + '</td>'; });
-    totalRow += '<td>' + chtml(total(selectedMonthTotal), 50) + '</td>';
+    var totalRow = '<tr class="total-row"><th>\uACC4</th><td>' + comma(total("prevTotal", prevTotal)) + '</td><td>' + comma(Math.round(total("prevTotal", prevTotal) / 12)) + '</td>';
+    preMonths.forEach(function (m) { totalRow += '<td>' + comma(total("preMonth" + m, function (cat) { return monthCount(cat, s.year, m); })) + '</td>'; });
+    prevGroups.forEach(function (g, gi) { totalRow += '<td>' + comma(total("prevGroup" + gi, function (cat) { return groupCount(cat, g); })) + '</td>'; });
+    days.forEach(function (d) { totalRow += '<td>' + chtml(total("day" + d, function (cat) { return dayCount(cat, d); }), 3, d === todayKey) + '</td>'; });
+    totalRow += '<td>' + chtml(total("selectedMonthTotal", selectedMonthTotal), 50) + '</td>';
     postMonths.forEach(function () { totalRow += '<td>' + chtml(0, 50) + '</td>'; });
-    totalRow += '<td>' + chtml(total(yearTotal), 600) + '</td><td>' + chtml(Math.round(total(yearTotal) / Math.max(1, s.month)), 50) + '</td></tr>';
+    totalRow += '<td>' + chtml(total("yearTotal", yearTotal), 600) + '</td><td>' + chtml(Math.round(total("yearTotal", yearTotal) / Math.max(1, s.month)), 50) + '</td></tr>';
     var ppmVals = { prev: 1011, 1: 865, 2: 955, 3: 1139, 4: 1325, 5: 964, 6: 903, avg: 1037 };
     var ppm = '<tr class="ppm-row"><th>PPM</th><td>' + comma(ppmVals.prev) + '</td><td>-</td>';
     preMonths.forEach(function (m) { ppm += '<td>' + (ppmVals[m] ? comma(ppmVals[m]) : '-') + '</td>'; });
@@ -689,20 +702,38 @@
   function sharedState() {
     return typeof state !== "undefined" ? state : (window.state || null);
   }
+  // matchingImages가 표의 행마다(접수 1건마다) 호출되는데, 그때마다
+  // s.images 전체를 다시 normalizeMatchKey(정규식 치환 + 대문자 변환)
+  // 하고 있었다 — 같은 이미지 이름을 행 수만큼 반복해서 정규화한 셈.
+  // s.images 배열이 바뀌지 않는 한(업로드/삭제 전까지는 같은 배열
+  // 참조이므로) 정규화 결과를 캐시해뒀다가 재사용한다.
+  var matchingImagesNormCache = null; // { imagesRef, list: [{img, normName}] }
+  function normalizedImagesFor_(images) {
+    if (matchingImagesNormCache && matchingImagesNormCache.imagesRef === images) {
+      return matchingImagesNormCache.list;
+    }
+    var list = images.map(function (img) { return { img: img, normName: normalizeMatchKey(img.name) }; });
+    matchingImagesNormCache = { imagesRef: images, list: list };
+    return list;
+  }
   function matchingImages(receiptNo, seq, code) {
     var s = sharedState();
     var images = (s && Array.isArray(s.images)) ? s.images : [];
     var combined = normalizeMatchKey(receiptNo) + normalizeMatchKey(seq) + normalizeMatchKey(code);
     if (!combined) return [];
+    var normalized = normalizedImagesFor_(images);
     var seen = new Set();
-    return images.filter(function (img) {
-      var name = normalizeMatchKey(img.name);
-      if (!name || name.indexOf(combined) < 0) return false;
+    var matched = [];
+    for (var i = 0; i < normalized.length; i++) {
+      var name = normalized[i].normName;
+      if (!name || name.indexOf(combined) < 0) continue;
+      var img = normalized[i].img;
       var dedupeKey = name || img.id || img.url || img.dataUrl;
-      if (seen.has(dedupeKey)) return false;
+      if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
-      return true;
-    }).sort(function (a, b) {
+      matched.push(img);
+    }
+    return matched.sort(function (a, b) {
       return imageSequenceNo(a.name) - imageSequenceNo(b.name);
     });
   }
