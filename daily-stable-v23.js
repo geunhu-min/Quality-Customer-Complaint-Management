@@ -767,14 +767,20 @@
   var thumbLoadQueue = [];
   var thumbLoadActive = 0;
   var thumbLoadObserver = null;
+  var thumbLoadGeneration = 0;
   function pumpThumbLoadQueue() {
     while (thumbLoadActive < THUMB_LOAD_MAX_CONCURRENCY && thumbLoadQueue.length) {
       var img = thumbLoadQueue.shift();
       var src = img.getAttribute("data-lazy-src");
       if (!src || img.getAttribute("src")) continue;
+      var gen = thumbLoadGeneration;
       thumbLoadActive++;
       var done = function () {
-        thumbLoadActive--;
+        // 표가 다시 그려져서(날짜/주 변경 등) 이 이미지가 이미 지워진 뒤에
+        // 뒤늦게 load/error가 와도, 지금 세대의 카운터를 건드리지 않는다
+        // (지워지기 전 세대의 요청이 동시 로딩 칸을 계속 차지한 것처럼
+        // 착각해 다음 표의 사진이 영영 안 뜨는 문제를 막기 위함).
+        if (gen === thumbLoadGeneration) thumbLoadActive--;
         pumpThumbLoadQueue();
       };
       img.addEventListener("load", done, { once: true });
@@ -802,6 +808,15 @@
       for (var j = 0; j < imgs.length; j++) imgs[j].src = imgs[j].getAttribute("data-lazy-src");
       return;
     }
+    // 표가 다시 그려지면(날짜/주 변경 등) 이전 표의 이미지들은 DOM에서
+    // 사라지는데, 그중 아직 로딩 중이던 요청은 load/error가 영영 안 올 수도
+    // 있어(브라우저가 조용히 취소) 동시 로딩 칸을 영원히 차지한 채로 남을
+    // 수 있었다. 그러면 다음 표의 사진이 4장 넘어가는 순간부터 전부 안
+    // 뜨는(깨진 것처럼 보이는) 문제가 생긴다. 표를 새로 그릴 때마다 큐와
+    // 카운터를 리셋해서 이전 표의 흔적이 다음 표에 영향을 주지 않게 한다.
+    thumbLoadGeneration++;
+    thumbLoadQueue = [];
+    thumbLoadActive = 0;
     var observer = ensureThumbLoadObserver();
     for (var i = 0; i < imgs.length; i++) observer.observe(imgs[i]);
   }
