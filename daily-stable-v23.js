@@ -152,9 +152,30 @@
     return 3;
   }
   function sortDetails(rows) {
+    // 외주 업체 중 시공미결 건이 하나라도 있는 업체를, 고객불만 건만 있는
+    // 업체보다 먼저 오게 하기 위한 사전 집계(업체명 알파벳 순으로만 묶으면
+    // 시공미결이 없는 업체가 알파벳 순서상 먼저 와버리는 문제가 있었다).
+    var outsourcePendingVendors = new Set();
+    rows.forEach(function (r) {
+      if (sourceRank(r.source) === 3 && r.category === T.pending) outsourcePendingVendors.add(r.source);
+    });
     return rows.slice().sort(function (a, b) {
-      return sourceRank(a.source) - sourceRank(b.source) ||
-        categoryRank(a.category) - categoryRank(b.category) ||
+      var aRank = sourceRank(a.source);
+      var bRank = sourceRank(b.source);
+      if (aRank !== bRank) return aRank - bRank;
+      // 외주 업체는 "업체(원인처) -> 시공미결/고객불만" 순으로 묶어서 정렬한다
+      // (같은 업체끼리 모아놓고, 그 안에서 시공미결을 위로). 1/4/7라인·구매 등
+      // 나머지 원인처는 기존처럼 분류를 먼저 보고 정렬한다.
+      if (aRank === 3) {
+        var aHasPending = outsourcePendingVendors.has(a.source) ? 0 : 1;
+        var bHasPending = outsourcePendingVendors.has(b.source) ? 0 : 1;
+        return aHasPending - bHasPending ||
+          a.source.localeCompare(b.source, "ko") ||
+          categoryRank(a.category) - categoryRank(b.category) ||
+          defectPrefixRank(a.defect) - defectPrefixRank(b.defect) ||
+          a.code.localeCompare(b.code, "ko");
+      }
+      return categoryRank(a.category) - categoryRank(b.category) ||
         defectPrefixRank(a.defect) - defectPrefixRank(b.defect) ||
         a.source.localeCompare(b.source, "ko") ||
         a.code.localeCompare(b.code, "ko");
@@ -1644,6 +1665,22 @@
       }).then(function (res) { return res.json(); }).then(function (data) {
         if (!data || !data.ok) throw new Error((data && data.error) || "업로드에 실패했습니다.");
         if (!data.url) throw new Error("업로드는 됐지만 링크를 받지 못했습니다 — gas/daily-receipt-webapp.gs가 아직 재배포되지 않았을 수 있습니다.");
+        // 서버(GAS)가 보내준 단계별 소요시간 — 속도 점검용. F12 콘솔에서 확인.
+        // timings 값은 "시작부터 누적"이라 그대로는 읽기 불편해서, 단계 사이
+        // 구간별(delta) 소요시간으로 바꿔서 같이 보여준다.
+        if (data.timings) {
+          var order = ["decode", "getFolder", "createFile", "setSharing", "findRow", "readST", "writeST"];
+          var deltas = {};
+          var prev = 0;
+          order.forEach(function (key) {
+            if (!(key in data.timings)) return;
+            deltas[key] = data.timings[key] - prev;
+            prev = data.timings[key];
+          });
+          console.log("[업로드 단계별 소요시간(ms) - 구간별]", deltas, "(누적:", data.timings, ")");
+          if (data.folderId) console.log("[업로드 폴더 ID] " + data.folderId + " (UPLOAD_FOLDER_ID_에 붙여넣으면 폴더 검색 단계를 생략할 수 있음)");
+          if (data.folderLookupMethod) console.log("[폴더 찾은 방법] " + data.folderLookupMethod + " (id=ID로 바로 열림(빠름) / no-id-set=ID 미설정 / id-failed-fallback=ID가 잘못돼서 이름 검색으로 대체됨)");
+        }
         return data.url;
       }).finally(function () {
         if (timer) clearInterval(timer);
