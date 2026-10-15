@@ -1618,6 +1618,28 @@
     return idx >= 0 ? dataUrl.slice(idx + marker.length) : dataUrl;
   }
   var UPLOAD_PAYLOAD_MAX_BYTES = 45 * 1024 * 1024; // 45MB - 압축 후(base64) 용량 기준, 앱스스크립트 전송 한도 여유있게 잡음
+  // PNG는 사진 내용이면 용량이 불필요하게 커서(예: 7.5MB) 업로드가 느려진다.
+  // 해상도는 그대로 두고 포맷만 고품질(95%) JPEG로 바꿔 전송 용량을 줄인다. 실패 시 원본 PNG 그대로 사용(폴백).
+  var PNG_TO_JPEG_ENABLED = true;
+  function pngDataUrlToJpegDataUrl_(dataUrl, quality) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = function () { reject(new Error("PNG -> JPEG 변환 실패")); };
+      img.src = dataUrl;
+    });
+  }
   function uploadFileToSharedLink(file, meta) {
     var videoFileToDataUrl = window.videoFileToDataUrl;
     // imageFileToDataUrl은 로컬 임시저장용(1200px/82% 압축) 함수라 공유 업로드에 쓰면
@@ -1630,16 +1652,21 @@
     if (!sheetSyncUrl) return Promise.reject(new Error("업로드 주소가 설정되어 있지 않습니다."));
     var updateProgress = window.updateMediaProgress;
     var hideProgress = window.hideMediaProgress;
-    return toDataUrl(file).then(function (dataUrl) {
+    return toDataUrl(file).then(function (rawDataUrl) {
+      var needsPngToJpeg = PNG_TO_JPEG_ENABLED && /^data:image\/png/i.test(rawDataUrl);
+      var dataUrlPromise = needsPngToJpeg
+        ? pngDataUrlToJpegDataUrl_(rawDataUrl, 0.95).catch(function () { return rawDataUrl; })
+        : Promise.resolve(rawDataUrl);
+      return dataUrlPromise.then(function (dataUrl) {
       var base64 = dataUrlToBase64(dataUrl);
       var approxBytes = Math.round(base64.length * 3 / 4);
       if (approxBytes > UPLOAD_PAYLOAD_MAX_BYTES) {
         throw new Error("압축 후에도 파일이 너무 큽니다(" + (approxBytes / 1024 / 1024).toFixed(0) + "MB). 구글 드라이브에 직접 올리신 뒤 링크를 붙여넣어 주세요.");
       }
-      // 압축되면서 실제 형식이 바뀔 수 있어(원본 포맷 -> mp4 재인코딩), data URL에 적힌 실제 mimeType을 쓴다.
+      // 압축/변환되면서 실제 형식이 바뀔 수 있어(원본 포맷 -> mp4 재인코딩, PNG -> JPEG 테스트), data URL에 적힌 실제 mimeType을 쓴다.
       var actualMimeMatch = /^data:([^;,]+)/.exec(dataUrl);
       var actualMimeType = actualMimeMatch ? actualMimeMatch[1] : (file.type || "");
-      var actualExt = actualMimeType === "video/mp4" ? ".mp4" : (file.name.match(/\.[a-z0-9]+$/i) || [""])[0];
+      var actualExt = actualMimeType === "video/mp4" ? ".mp4" : (actualMimeType === "image/jpeg" ? ".jpg" : (file.name.match(/\.[a-z0-9]+$/i) || [""])[0]);
       var baseName = file.name.replace(/\.[a-z0-9]+$/i, "");
       var actualFileName = actualExt ? baseName + actualExt : file.name;
       var startedAt = Date.now();
@@ -1691,6 +1718,7 @@
         return data.url;
       }).finally(function () {
         if (timer) clearInterval(timer);
+      });
       });
     }).finally(function () {
       if (hideProgress) hideProgress();
