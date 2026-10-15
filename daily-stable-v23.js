@@ -1680,6 +1680,13 @@
           console.log("[업로드 단계별 소요시간(ms) - 구간별]", deltas, "(누적:", data.timings, ")");
           if (data.folderId) console.log("[업로드 폴더 ID] " + data.folderId + " (UPLOAD_FOLDER_ID_에 붙여넣으면 폴더 검색 단계를 생략할 수 있음)");
           if (data.folderLookupMethod) console.log("[폴더 찾은 방법] " + data.folderLookupMethod + " (id=ID로 바로 열림(빠름) / no-id-set=ID 미설정 / id-failed-fallback=ID가 잘못돼서 이름 검색으로 대체됨)");
+          // 클라이언트에서 잰 총 시간(요청 전송~응답 수신)과 서버가 실제로 잰 처리시간의 차이가
+          // 곧 "네트워크 전송/GAS 대기열" 등 우리 코드가 손댈 수 없는 구간이다. 이게 큰데
+          // 서버 단계 합산은 작다면, 느린 원인이 서버 처리가 아니라 업로드 전송 자체라는 뜻.
+          var clientTotalMs = Date.now() - startedAt;
+          var serverTotalMs = data.timings.writeST != null ? data.timings.writeST : data.timings.findRow;
+          var networkOverheadMs = clientTotalMs - serverTotalMs;
+          console.log("[총 소요시간 비교] 클라이언트 측정(요청~응답) " + clientTotalMs + "ms · 서버 처리(GAS 내부) " + serverTotalMs + "ms · 차이(네트워크 전송/GAS 대기열 등) " + networkOverheadMs + "ms · 페이로드 약 " + Math.round(approxBytes / 1024) + "KB");
         }
         return data.url;
       }).finally(function () {
