@@ -1873,6 +1873,13 @@
     el.innerHTML =
       '<div class="modal-dialog" style="width:min(420px,92vw)">' +
         '<div class="modal-head"><h2 style="font-size:16px">이미지/영상 링크 추가</h2><button type="button" class="link-attach-close">닫기</button></div>' +
+        '<label style="display:grid;gap:6px;margin-bottom:18px">' +
+          '<span>내 컴퓨터에서 파일 선택 (사진/동영상 — 구글 드라이브에 자동 업로드되어 다른 사람도 볼 수 있습니다)</span>' +
+          '<input type="file" class="link-attach-file" accept="image/*,video/*">' +
+        '</label>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin:0 0 18px;color:#9aa3b2;font-size:12px">' +
+          '<div style="flex:1;height:1px;background:#e5e7eb"></div>또는<div style="flex:1;height:1px;background:#e5e7eb"></div>' +
+        '</div>' +
         '<label style="display:grid;gap:6px;margin-bottom:14px">' +
           '<span>링크 (구글 드라이브 공유 링크 등)</span>' +
           '<input type="text" class="link-attach-input" placeholder="https://drive.google.com/...">' +
@@ -1880,13 +1887,6 @@
         '<label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer">' +
           '<input type="checkbox" class="link-attach-video-check">' +
           '<span>영상입니다</span>' +
-        '</label>' +
-        '<div style="display:flex;align-items:center;gap:10px;margin:0 0 18px;color:#9aa3b2;font-size:12px">' +
-          '<div style="flex:1;height:1px;background:#e5e7eb"></div>또는<div style="flex:1;height:1px;background:#e5e7eb"></div>' +
-        '</div>' +
-        '<label style="display:grid;gap:6px;margin-bottom:18px">' +
-          '<span>내 컴퓨터에서 파일 선택 (사진/동영상 — 구글 드라이브에 자동 업로드되어 다른 사람도 볼 수 있습니다)</span>' +
-          '<input type="file" class="link-attach-file" accept="image/*,video/*">' +
         '</label>' +
         '<div style="display:flex;justify-content:flex-end;gap:8px">' +
           '<button type="button" class="link-attach-cancel">취소</button>' +
