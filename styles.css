@@ -2210,7 +2210,7 @@ main {
   max-height: 78vh;
   border-radius: 10px;
   transition: transform 0.12s;
-  transform-origin: left center;
+  transform-origin: left top;
   flex: 0 0 auto;
   margin: auto;
 }
