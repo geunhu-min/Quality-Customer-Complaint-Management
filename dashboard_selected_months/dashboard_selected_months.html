@@ -1469,6 +1469,63 @@ function packageVendorSeriesForExcel(group,checkedLabelInfos,isAmount){
   }).sort((a,b)=>sum(b.counts)-sum(a.counts));
   return withCounts.map((s,idx)=>({name:s.name,values:isAmount?s.amounts:s.counts,color:SVG_CHART_COLORS[idx%SVG_CHART_COLORS.length]}));
 }
+function packageVendorBreakdownSeriesForExcel(group,checkedLabelInfos,year){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const withCounts=checkedLabelInfos.map(info=>{
+    const rowsPerMonth=CLAIM_TYPE_FILTER_MONTHS.map(m=>packageDetailFilteredRows(group,new Set(info.vendors),year,m,null));
+    const counts=rowsPerMonth.map(r=>r.length);
+    const totalAmounts=rowsPerMonth.map(r=>calcAmount(r,0));
+    const penaltyAmounts=counts.map(c=>c*PENALTY);
+    const productAmounts=totalAmounts.map((t,i)=>t-penaltyAmounts[i]);
+    return {name:info.label,counts,productAmounts,penaltyAmounts,totalAmounts};
+  }).sort((a,b)=>sum(b.counts)-sum(a.counts));
+  return withCounts.map((s,idx)=>({...s,color:SVG_CHART_COLORS[idx%SVG_CHART_COLORS.length]}));
+}
+function packageVendorSeriesByKey(breakdown,key){
+  return breakdown.map(s=>({name:s.name,values:s[key],color:s.color}));
+}
+function writeExcelVendorAmountBreakdownSection(ws,row,title,breakdown){
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const titleCell=ws.getCell(row,1);
+  titleCell.value=title;
+  titleCell.alignment=EXCEL_CENTER;
+  row++;
+  ["구분",...CLAIM_TYPE_FILTER_MONTHS,"합계"].forEach((val,ci)=>{
+    const cell=ws.getCell(row,ci+1);
+    cell.value=val;
+    cell.alignment=EXCEL_CENTER;
+    cell.fill=EXCEL_HEADER_FILL;
+    cell.border=EXCEL_THIN_BORDER;
+  });
+  row++;
+  const subRows=[["제품가","productAmounts"],["패널티","penaltyAmounts"],["합계","totalAmounts"]];
+  breakdown.forEach(s=>{
+    const argb="FF"+s.color.replace("#","").toUpperCase();
+    subRows.forEach(([subLabel,key])=>{
+      const values=s[key];
+      const labelCell=ws.getCell(row,1);
+      labelCell.value=`${s.name} ${subLabel}`;
+      labelCell.alignment=EXCEL_CENTER;
+      labelCell.fill=EXCEL_HEADER_FILL;
+      labelCell.border=EXCEL_THIN_BORDER;
+      labelCell.font={color:{argb},bold:true};
+      values.forEach((v,ci)=>{
+        const c=ws.getCell(row,ci+2);
+        c.value=v;
+        c.border=EXCEL_THIN_BORDER;
+        c.numFmt="#,##0";
+        c.font={color:{argb},bold:true};
+      });
+      const totalCell=ws.getCell(row,values.length+2);
+      totalCell.value=sum(values);
+      totalCell.border=EXCEL_THIN_BORDER;
+      totalCell.numFmt="#,##0";
+      totalCell.font={color:{argb},bold:true};
+      row++;
+    });
+  });
+  return row+1;
+}
 function writeExcelVendorSection(ws,row,title,series){
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const titleCell=ws.getCell(row,1);
@@ -1631,28 +1688,34 @@ async function downloadPackageDetailFilterExcelBoth(group,selectedValuesArr){
   const PACKAGE_DETAIL_EXCEL_COL_WIDTHS=[12,...Array.from({length:13},()=>11)];
   const checkedLabelInfos=packageCheckedLabelsFromSelection(group,selectedValuesArr);
   if(checkedLabelInfos.length){
-    const countTitle=`${group} 업체별 현황(건) (${CURRENT_YEAR.slice(2)}년)`;
-    const amountTitle=`${group} 업체별 현황(금액) (${CURRENT_YEAR.slice(2)}년)`;
-    const vendorCountSeries=packageVendorSeriesForExcel(group,checkedLabelInfos,false);
-    const vendorAmountSeries=packageVendorSeriesForExcel(group,checkedLabelInfos,true);
-    const vendorBarValueFontSize=vendorCountSeries.length>6?8:vendorCountSeries.length>3?10:12;
-    const vendorCountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorCountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:countTitle,barValueFontSize:vendorBarValueFontSize});
-    const vendorAmountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorAmountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:amountTitle,barValueFontSize:vendorBarValueFontSize,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
-    try{
-      const [vendorCountUrl,vendorAmountUrl]=await Promise.all([
-        svgMarkupToPngDataUrl(vendorCountChart.svg,vendorCountChart.width,vendorCountChart.height),
-        svgMarkupToPngDataUrl(vendorAmountChart.svg,vendorAmountChart.width,vendorAmountChart.height)
-      ]);
-      const vendorCountImgId=wb.addImage({base64:vendorCountUrl.split(",")[1],extension:"png"});
-      ws.addImage(vendorCountImgId,{tl:{col:0,row:row-1},ext:{width:vendorCountChart.width,height:vendorCountChart.height}});
-      const vendorAmountImgId=wb.addImage({base64:vendorAmountUrl.split(",")[1],extension:"png"});
-      ws.addImage(vendorAmountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:vendorAmountChart.width,height:vendorAmountChart.height}});
-      row+=Math.max(1,Math.ceil(vendorCountChart.height/20)-2);
-    }catch(e){console.error("업체별 차트 이미지 삽입 실패:",e);}
-    row=writeExcelVendorSection(ws,row,countTitle,vendorCountSeries);
-    row++;
-    row=writeExcelVendorSection(ws,row,amountTitle,vendorAmountSeries);
-    row++;
+    for(const year of [PREV_YEAR,CURRENT_YEAR]){
+      const breakdown=packageVendorBreakdownSeriesForExcel(group,checkedLabelInfos,year);
+      const yearHasData=breakdown.some(s=>s.counts.some(c=>c>0));
+      if(!yearHasData)continue;
+      const yearLabel=`${year.slice(2)}년`;
+      const countTitle=`${group} 업체별 현황(건) (${yearLabel})`;
+      const amountTitle=`${group} 업체별 현황(금액) (${yearLabel})`;
+      const vendorCountSeries=packageVendorSeriesByKey(breakdown,"counts");
+      const vendorAmountSeries=packageVendorSeriesByKey(breakdown,"totalAmounts");
+      const vendorBarValueFontSize=vendorCountSeries.length>6?8:vendorCountSeries.length>3?10:12;
+      const vendorCountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorCountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:countTitle,barValueFontSize:vendorBarValueFontSize});
+      const vendorAmountChart=svgBarChartExportMarkup(CLAIM_TYPE_FILTER_MONTHS,vendorAmountSeries,{width:CHART_W,height:CHART_H,padBottom:30,title:amountTitle,barValueFontSize:vendorBarValueFontSize,axisFormatter:amountAxisFormatter,valueFormatter:amountShortFormatter,tooltipValueFormatter:amountAxisFormatter});
+      try{
+        const [vendorCountUrl,vendorAmountUrl]=await Promise.all([
+          svgMarkupToPngDataUrl(vendorCountChart.svg,vendorCountChart.width,vendorCountChart.height),
+          svgMarkupToPngDataUrl(vendorAmountChart.svg,vendorAmountChart.width,vendorAmountChart.height)
+        ]);
+        const vendorCountImgId=wb.addImage({base64:vendorCountUrl.split(",")[1],extension:"png"});
+        ws.addImage(vendorCountImgId,{tl:{col:0,row:row-1},ext:{width:vendorCountChart.width,height:vendorCountChart.height}});
+        const vendorAmountImgId=wb.addImage({base64:vendorAmountUrl.split(",")[1],extension:"png"});
+        ws.addImage(vendorAmountImgId,{tl:{col:RIGHT_COL,row:row-1},ext:{width:vendorAmountChart.width,height:vendorAmountChart.height}});
+        row+=Math.max(1,Math.ceil(vendorCountChart.height/20)-2);
+      }catch(e){console.error("업체별 차트 이미지 삽입 실패:",e);}
+      row=writeExcelVendorSection(ws,row,countTitle,vendorCountSeries);
+      row++;
+      row=writeExcelVendorAmountBreakdownSection(ws,row,amountTitle,breakdown);
+      row++;
+    }
   }
   if(group==="외주"){
     const countCards=packageVendorCardSections(group,selectedValues,false);
