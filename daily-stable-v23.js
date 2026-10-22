@@ -650,10 +650,10 @@
       preMonths.forEach(function (m) { html += '<td>' + chtml(cached(cat, "preMonth" + m, function () { return monthCount(cat, s.year, m); })) + '</td>'; });
       prevGroups.forEach(function (g, gi) { html += '<td>' + chtml(cached(cat, "prevGroup" + gi, function () { return groupCount(cat, g); })) + '</td>'; });
       days.forEach(function (d) { html += '<td>' + chtml(cached(cat, "day" + d, function () { return dayCount(cat, d); }), dTarget, d === todayKey) + '</td>'; });
-      html += '<td>' + chtml(cached(cat, "selectedMonthTotal", function () { return selectedMonthTotal(cat); }), mTarget) + '</td>';
+      html += '<td>' + chtml(cached(cat, "selectedMonthTotal", function () { return selectedMonthTotal(cat); })) + '</td>';
       postMonths.forEach(function () { html += '<td>' + chtml(0, mTarget) + '</td>'; });
       var yTot = cached(cat, "yearTotal", function () { return yearTotal(cat); });
-      html += '<td>' + chtml(yTot, yTarget) + '</td><td>' + chtml(Math.round(yTot / Math.max(1, s.month)), mTarget) + '</td></tr>';
+      html += '<td>' + chtml(yTot) + '</td><td>' + chtml(Math.round(yTot / Math.max(1, s.month))) + '</td></tr>';
       return html;
     }
     var body = cats.map(row).join("");
@@ -661,9 +661,9 @@
     preMonths.forEach(function (m) { totalRow += '<td>' + comma(total("preMonth" + m, function (cat) { return monthCount(cat, s.year, m); })) + '</td>'; });
     prevGroups.forEach(function (g, gi) { totalRow += '<td>' + comma(total("prevGroup" + gi, function (cat) { return groupCount(cat, g); })) + '</td>'; });
     days.forEach(function (d) { totalRow += '<td>' + chtml(total("day" + d, function (cat) { return dayCount(cat, d); }), 3, d === todayKey) + '</td>'; });
-    totalRow += '<td>' + chtml(total("selectedMonthTotal", selectedMonthTotal), 50) + '</td>';
+    totalRow += '<td>' + chtml(total("selectedMonthTotal", selectedMonthTotal)) + '</td>';
     postMonths.forEach(function () { totalRow += '<td>' + chtml(0, 50) + '</td>'; });
-    totalRow += '<td>' + chtml(total("yearTotal", yearTotal), 600) + '</td><td>' + chtml(Math.round(total("yearTotal", yearTotal) / Math.max(1, s.month)), 50) + '</td></tr>';
+    totalRow += '<td>' + chtml(total("yearTotal", yearTotal)) + '</td><td>' + chtml(Math.round(total("yearTotal", yearTotal) / Math.max(1, s.month))) + '</td></tr>';
     var ppmVals = { prev: 1011, 1: 865, 2: 955, 3: 1139, 4: 1325, 5: 964, 6: 903, avg: 1037 };
     var ppm = '<tr class="ppm-row"><th>PPM</th><td>' + comma(ppmVals.prev) + '</td><td>-</td>';
     preMonths.forEach(function (m) { ppm += '<td>' + (ppmVals[m] ? comma(ppmVals[m]) : '-') + '</td>'; });
