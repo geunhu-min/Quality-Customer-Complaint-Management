@@ -1249,7 +1249,10 @@ async function fetchGoogleMonthlyWorkbookByExport(url) {
 async function fetchGoogleWorkbookBuffer(url, sheetId) {
   const proxyUrl = `/api/google-workbook?url=${encodeURIComponent(url)}`;
   try {
-    const proxyResponse = await fetch(proxyUrl);
+    // cache:"no-store"가 없으면 새로고침해도 브라우저가 예전 응답을 그대로
+    // 재사용해버려서(강력 새로고침을 해야만 최신 데이터가 보이는 원인이었음),
+    // 매번 네트워크로 새로 받아오도록 강제한다.
+    const proxyResponse = await fetch(proxyUrl, { cache: "no-store" });
     if (proxyResponse.ok) {
       return {
         buffer: await proxyResponse.arrayBuffer(),
@@ -1260,7 +1263,7 @@ async function fetchGoogleWorkbookBuffer(url, sheetId) {
     // file:// or a static host without the local proxy falls back to direct export.
   }
 
-  const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`);
+  const response = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, { cache: "no-store" });
   if (!response.ok) throw new Error(`워크북 응답 오류 ${response.status}`);
   return {
     buffer: await response.arrayBuffer(),
